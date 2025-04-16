@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from "firebase/auth";
+import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,20 +31,55 @@ export default function Home() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
   const { toast } = useToast();
   const router = useRouter();
   const auth = getAuth();
+  const db = getFirestore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isRegistering) {
+      if (!name) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Por favor, insira seu nome.",
+        });
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "As senhas não coincidem.",
+        });
+        return;
+      }
+    }
+
     try {
       if (isRegistering) {
-        await createUserWithEmailAndPassword(auth, email, password);
-        toast({
-          title: "Conta criada com sucesso!",
-          description: "Redirecionando para o painel...",
-        });
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        if (user) {
+          // Create a user document in Firestore
+          await setDoc(doc(db, "users", user.uid), {
+            name: name,
+            email: email,
+            saldo: 0, // Initial balance
+            isAdmin: false, // Set admin status
+          });
+
+          toast({
+            title: "Conta criada com sucesso!",
+            description: "Redirecionando para o painel...",
+          });
+        }
       } else {
         await signInWithEmailAndPassword(auth, email, password);
         toast({
@@ -74,6 +110,18 @@ export default function Home() {
         </CardHeader>
         <CardContent className="grid gap-4">
           <form onSubmit={handleSubmit}>
+            {isRegistering && (
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Seu nome"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -93,6 +141,17 @@ export default function Home() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
+            {isRegistering && (
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+            )}
             <Button type="submit" className="w-full mt-4">
               {isRegistering ? "Criar Conta" : "Entrar"}
             </Button>
@@ -112,4 +171,3 @@ export default function Home() {
     </div>
   );
 }
-
