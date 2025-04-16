@@ -130,7 +130,7 @@ export default function Transfer() {
         const destinatarioDoc = querySnapshot.docs[0];
         const destinatarioDocRef = doc(db, "users", destinatarioDoc.id);
 
-         // Check if sender and receiver are the same
+        // Check if sender and receiver are the same
         if (userId === destinatarioDoc.id) {
           toast({
             variant: "destructive",
