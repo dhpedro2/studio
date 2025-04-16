@@ -54,10 +54,14 @@ export default function Home() {
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Erro:", error);
+      let errorMessage = "Erro ao realizar a operação";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Este email já está em uso. Por favor, use um email diferente ou faça login.";
+      }
       toast({
         variant: "destructive",
         title: "Erro ao realizar a operação",
-        description: error.message,
+        description: errorMessage,
       });
     }
   };
@@ -108,3 +112,4 @@ export default function Home() {
     </div>
   );
 }
+
