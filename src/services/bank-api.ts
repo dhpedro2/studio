@@ -27,7 +27,7 @@ export async function getBankAccount(accountNumber: string): Promise<BankAccount
 
   return {
     accountNumber: accountNumber,
-    accountHolderName: 'John Doe',
+    accountHolderName: 'Pedro',
     balance: 1000,
   };
 }
