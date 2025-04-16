@@ -52,6 +52,13 @@ export default function Transfer() {
   const { toast } = useToast();
   const auth = getAuth();
   const db = getFirestore();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (auth.currentUser) {
+      setUserId(auth.currentUser.uid);
+    }
+  }, [auth.currentUser]);
 
   useEffect(() => {
     const fetchDestinatarioNome = async () => {
@@ -102,11 +109,10 @@ export default function Transfer() {
     setOpen(false);
     try {
       if (auth.currentUser) {
-        const userId = auth.currentUser.uid;
         const valorTransferencia = parseFloat(valor);
 
         // Get references to the sender and receiver documents
-        const remetenteDocRef = doc(db, "users", userId);
+        const remetenteDocRef = doc(db, "users", userId!);
 
         const usersCollection = collection(db, "users");
         const q = query(usersCollection, where("email", "==", destinatarioEmail));
@@ -123,6 +129,16 @@ export default function Transfer() {
 
         const destinatarioDoc = querySnapshot.docs[0];
         const destinatarioDocRef = doc(db, "users", destinatarioDoc.id);
+
+         // Check if sender and receiver are the same
+        if (userId === destinatarioDoc.id) {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Você não pode transferir para sua própria conta.",
+          });
+          return;
+        }
 
         // Get sender and receiver data
         const remetenteDoc = await getDoc(remetenteDocRef);
@@ -142,7 +158,7 @@ export default function Transfer() {
 
         // Check if sender has enough balance
         if (remetenteSaldo < valorTransferencia) {
-          toast({
+           toast({
             variant: "destructive",
             title: "Erro",
             description: "Saldo insuficiente.",
@@ -173,7 +189,7 @@ export default function Transfer() {
         };
         await addDoc(collection(db, "transactions"), transactionData);
 
-        toast({
+         toast({
           title: "Transferência realizada com sucesso!",
           description: `R$ ${valorTransferencia.toFixed(
             2
@@ -240,4 +256,3 @@ export default function Transfer() {
     </div>
   );
 }
-
