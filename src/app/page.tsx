@@ -93,6 +93,9 @@ export default function Home() {
       let errorMessage = "Erro ao realizar a operação";
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Este email já está em uso. Por favor, use um email diferente ou faça login.";
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = "Credenciais inválidas. Verifique seu email e senha.";
+        setPassword(""); // Clear the password field
       }
       toast({
         variant: "destructive",
