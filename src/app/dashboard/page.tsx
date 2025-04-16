@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
+import { Separator } from "@/components/ui/separator";
+import { Home, Wallet, Clock, User } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -159,7 +161,16 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-secondary">
+    <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
+      {/* Navigation Buttons */}
+      <div className="flex justify-around w-full max-w-md mb-8">
+        <Button onClick={() => router.push("/")} variant="ghost"><Home className="mr-2" />Início</Button>
+        <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
+        <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
+        <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
+      </div>
+      <Separator className="w-full max-w-md mb-8" />
+
       <Card className="w-96">
         <CardHeader className="space-y-1">
           <CardTitle>Painel do Usuário</CardTitle>
