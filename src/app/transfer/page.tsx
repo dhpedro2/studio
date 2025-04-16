@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import {
   getFirestore,
@@ -10,6 +11,8 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
+  FieldValue,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -27,6 +30,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
+  authDomain: "bank-dh.firebaseapp.com",
+  projectId: "bank-dh",
+  storageBucket: "bank-dh.firebasestorage.app",
+  messagingSenderId: "370634468884",
+  appId: "1:370634468884:web:4a00ea2f9757051cda4101",
+  measurementId: "G-JPFXDJBSGM",
+};
+
+// Initialize Firebase
+initializeApp(firebaseConfig);
 
 export default function Transfer() {
   const [destinatarioEmail, setDestinatarioEmail] = useState("");
@@ -146,6 +162,15 @@ export default function Transfer() {
         await updateDoc(destinatarioDocRef, {
           saldo: destinatarioSaldo,
         });
+
+          // Record the transaction
+          const transactionData = {
+            remetente: userId,
+            destinatario: destinatarioDoc.id,
+            valor: valorTransferencia,
+            data: new Date().toISOString(),
+          };
+          await collection(db, "transactions").add(transactionData);
 
         toast({
           title: "Transferência realizada com sucesso!",
