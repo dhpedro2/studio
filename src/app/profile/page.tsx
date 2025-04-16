@@ -57,6 +57,8 @@ export default function Profile() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [totalAmountTransferred, setTotalAmountTransferred] = useState<number>(0);
   const [transactionFrequency, setTransactionFrequency] = useState<any>({});
+  const [name, setName] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const auth = getAuth();
   const db = getFirestore();
   const router = useRouter();
@@ -66,8 +68,16 @@ export default function Profile() {
       if (!auth.currentUser) {
         return;
       }
-  
+
       const userId = auth.currentUser.uid;
+      const userDocRef = doc(db, "users", userId);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        setName(userDoc.data().name || null);
+        setEmail(userDoc.data().email || null);
+      }
+
       const transactionsCollection = collection(db, "transactions");
   
       // Query transactions where the user is either the sender OR the recipient
@@ -177,6 +187,16 @@ export default function Profile() {
         <CardContent className="grid gap-4">
           <div>
             <p className="text-lg font-semibold">
+              Nome: {name || "Carregando..."}
+            </p>
+          </div>
+          <div>
+            <p className="text-lg font-semibold">
+              Email: {email || "Carregando..."}
+            </p>
+          </div>
+          <div>
+            <p className="text-lg font-semibold">
               Total Transferido: R$ {totalAmountTransferred.toFixed(2)}
             </p>
           </div>
@@ -211,4 +231,5 @@ export default function Profile() {
     </div>
   );
 }
+
 
