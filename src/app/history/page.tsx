@@ -59,14 +59,7 @@ export default function History() {
           orderBy("data", "desc")
         );
 
-        const q2 = query(
-          transactionsCollection,
-          where("destinatario", "==", userId),
-          orderBy("data", "desc")
-        );
-
         const querySnapshot = await getDocs(q);
-        const querySnapshot2 = await getDocs(q2);
 
         const transactionList: Transaction[] = [];
 
@@ -85,8 +78,15 @@ export default function History() {
             destinatarioNome: destinatarioNome,
           });
         });
+        
+        const q2 = query(
+          transactionsCollection,
+          where("destinatario", "==", userId),
+          orderBy("data", "desc")
+        );
 
-        // Process receiver transactions
+        const querySnapshot2 = await getDocs(q2);
+
         querySnapshot2.forEach(async (doc) => {
           const data = doc.data();
           const remetenteNome = data.remetenteNome || "Unknown Sender";
@@ -101,7 +101,7 @@ export default function History() {
             destinatarioNome: destinatarioNome,
           });
         });
-        
+
         transactionList.sort((a, b) => (b.data > a.data ? 1 : -1));
 
         setTransactions(transactionList);
