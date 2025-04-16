@@ -10,6 +10,8 @@ import {
   where,
   orderBy,
   getDocs,
+  getDoc,
+  doc,
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -50,60 +52,74 @@ export default function History() {
 
   useEffect(() => {
     const loadTransactions = async () => {
-      if (auth.currentUser) {
-        const userId = auth.currentUser.uid;
-        const transactionsCollection = collection(db, "transactions");
-  
-        // Query transactions where the user is either the sender OR the recipient
-        const q = query(
-          transactionsCollection,
-          where("remetente", "==", userId),
-          orderBy("data", "desc")
-        );
-        
-        const q2 = query(
-          transactionsCollection,
-          where("destinatario", "==", userId),
-          orderBy("data", "desc")
-        );
-
-        const [sentSnapshot, receivedSnapshot] = await Promise.all([
-          getDocs(q),
-          getDocs(q2)
-        ]);
-        
-        const transactionList: Transaction[] = [];
-
-        sentSnapshot.forEach((doc) => {
-            const data = doc.data();
-            transactionList.push({
-                id: doc.id,
-                remetente: data.remetente,
-                destinatario: data.destinatario,
-                valor: data.valor,
-                data: data.data,
-                remetenteNome: data.remetenteNome,
-                destinatarioNome: data.destinatarioNome,
-            });
-        });
-
-        receivedSnapshot.forEach((doc) => {
-            const data = doc.data();
-            transactionList.push({
-                id: doc.id,
-                remetente: data.remetente,
-                destinatario: data.destinatario,
-                valor: data.valor,
-                data: data.data,
-                remetenteNome: data.remetenteNome,
-                destinatarioNome: data.destinatarioNome,
-            });
-        });
-        
-        transactionList.sort((a, b) => (b.data > a.data ? 1 : -1));
-  
-        setTransactions(transactionList);
+      if (!auth.currentUser) {
+        return;
       }
+  
+      const userId = auth.currentUser.uid;
+      const transactionsCollection = collection(db, "transactions");
+  
+      // Query transactions where the user is either the sender OR the recipient
+      const q = query(
+        transactionsCollection,
+        where("remetente", "==", userId),
+        orderBy("data", "desc")
+      );
+  
+      const q2 = query(
+        transactionsCollection,
+        where("destinatario", "==", userId),
+        orderBy("data", "desc")
+      );
+  
+      const [sentSnapshot, receivedSnapshot] = await Promise.all([
+        getDocs(q),
+        getDocs(q2)
+      ]);
+  
+      const transactionList: Transaction[] = [];
+  
+      // Helper function to fetch user name
+      const fetchUserName = async (userId: string) => {
+        const userDoc = await getDoc(doc(db, "users", userId));
+        if (userDoc.exists()) {
+          return userDoc.data().name;
+        }
+        return "Nome Desconhecido";
+      };
+  
+      // Process sent transactions
+      for (const doc of sentSnapshot.docs) {
+        const data = doc.data();
+        const destinatarioNome = await fetchUserName(data.destinatario);
+        transactionList.push({
+          id: doc.id,
+          remetente: data.remetente,
+          destinatario: data.destinatario,
+          valor: data.valor,
+          data: data.data,
+          remetenteNome: "Você", // Sender is the current user
+          destinatarioNome: destinatarioNome,
+        });
+      }
+  
+      // Process received transactions
+      for (const doc of receivedSnapshot.docs) {
+        const data = doc.data();
+        const remetenteNome = await fetchUserName(data.remetente);
+        transactionList.push({
+          id: doc.id,
+          remetente: data.remetente,
+          destinatario: data.destinatario,
+          valor: data.valor,
+          data: data.data,
+          remetenteNome: remetenteNome,
+          destinatarioNome: "Você", // Recipient is the current user
+        });
+      }
+  
+      transactionList.sort((a, b) => (b.data > a.data ? 1 : -1));
+      setTransactions(transactionList);
     };
   
     loadTransactions();
