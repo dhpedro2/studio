@@ -53,18 +53,27 @@ export default function History() {
         const transactionsCollection = collection(db, "transactions");
 
         // Query transactions where the user is either the sender or the recipient
-        const q = query(
+        const qSent = query(
           transactionsCollection,
           where("remetente", "==", userId),
           orderBy("data", "desc")
         );
 
-        const querySnapshot = await getDocs(q);
+        const qReceived = query(
+          transactionsCollection,
+          where("destinatario", "==", userId),
+          orderBy("data", "desc")
+        );
+
+        const [sentSnapshot, receivedSnapshot] = await Promise.all([
+          getDocs(qSent),
+          getDocs(qReceived)
+        ]);
 
         const transactionList: Transaction[] = [];
 
         // Process sender transactions
-        querySnapshot.forEach(async (doc) => {
+        sentSnapshot.forEach(async (doc) => {
           const data = doc.data();
           const remetenteNome = data.remetenteNome || "Unknown Sender";
           const destinatarioNome = data.destinatarioNome || "Unknown Receiver";
@@ -79,15 +88,8 @@ export default function History() {
           });
         });
         
-        const q2 = query(
-          transactionsCollection,
-          where("destinatario", "==", userId),
-          orderBy("data", "desc")
-        );
-
-        const querySnapshot2 = await getDocs(q2);
-
-        querySnapshot2.forEach(async (doc) => {
+        // Process receiver transactions
+        receivedSnapshot.forEach(async (doc) => {
           const data = doc.data();
           const remetenteNome = data.remetenteNome || "Unknown Sender";
           const destinatarioNome = data.destinatarioNome || "Unknown Receiver";
