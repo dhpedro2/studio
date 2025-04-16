@@ -20,15 +20,15 @@ import { useRouter } from "next/navigation";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Chart,
-  ChartBar,
-  ChartBarSeries,
-  ChartCategoryAxis,
-  ChartLegend,
-  ChartValueAxis,
-} from "@mui/x-charts";
-import { useDrawingArea } from "@mui/x-charts/hooks";
-import { alpha, styled } from "@mui/material/styles";
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer
+  } from 'recharts';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -159,29 +159,6 @@ export default function Profile() {
     count: number;
   }
 
-  const StyledChartBar = styled(ChartBar)(({ theme }) => ({
-    borderRadius: 3,
-    ...(theme.palette.mode === 'dark'
-      ? {
-          fill: '#fff',
-        }
-      : {
-          fill: '#1A2027',
-        }),
-  }));
-
-  const RadarChartBackground = () => {
-    const { width, height, cx, cy } = useDrawingArea();
-    const grey = '#D8D8D8';
-    return (
-      <g>
-        <circle cx={cx} cy={cy} r={height * 0.4} stroke={grey} strokeWidth={1} fill="none" />
-        <circle cx={cx} cy={cy} r={height * 0.6} stroke={grey} strokeWidth={1} fill="none" />
-        <circle cx={cx} cy={cy} r={height * 0.8} stroke={grey} strokeWidth={1} fill="none" />
-      </g>
-    );
-  };
-
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
       {/* Navigation Buttons */}
@@ -209,14 +186,24 @@ export default function Profile() {
             </p>
           </div>
           <div>
-             <Chart
-                xAxis={[{ scaleType: 'band', dataKey: 'date' }]}
-                yAxis={[{}]}
-                series={[{ type: 'bar', dataKey: 'count' }]}
-                dataset={chartData}
-                width={500}
-                height={300}
-              />
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={chartData}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="count" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
           </div>
           
         </CardContent>
@@ -224,3 +211,4 @@ export default function Profile() {
     </div>
   );
 }
+
