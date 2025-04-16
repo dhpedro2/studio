@@ -9,6 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { initializeApp } from "firebase/app";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
+  authDomain: "bank-dh.firebaseapp.com",
+  projectId: "bank-dh",
+  storageBucket: "bank-dh.firebasestorage.app",
+  messagingSenderId: "370634468884",
+  appId: "1:370634468884:web:4a00ea2f9757051cda4101",
+  measurementId: "G-JPFXDJBSGM",
+};
 
 export default function Dashboard() {
   const [saldo, setSaldo] = useState<number | null>(null);
@@ -18,6 +29,10 @@ export default function Dashboard() {
   const [addRemoveAmount, setAddRemoveAmount] = useState<string>("");
   const router = useRouter();
   const { toast } = useToast();
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+
   const auth = getAuth();
   const db = getFirestore();
 
