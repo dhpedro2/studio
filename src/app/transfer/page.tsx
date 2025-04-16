@@ -12,7 +12,7 @@ import {
   where,
   getDocs,
   getDoc,
-  FieldValue,
+  addDoc,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,7 @@ export default function Transfer() {
     try {
       if (auth.currentUser) {
         const userId = auth.currentUser.uid;
+        const valorTransferencia = parseFloat(valor);
 
         // Get references to the sender and receiver documents
         const remetenteDocRef = doc(db, "users", userId);
@@ -110,7 +111,7 @@ export default function Transfer() {
         const usersCollection = collection(db, "users");
         const q = query(usersCollection, where("email", "==", destinatarioEmail));
         const querySnapshot = await getDocs(q);
-  
+
         if (querySnapshot.empty) {
           toast({
             variant: "destructive",
@@ -119,14 +120,14 @@ export default function Transfer() {
           });
           return;
         }
-  
+
         const destinatarioDoc = querySnapshot.docs[0];
         const destinatarioDocRef = doc(db, "users", destinatarioDoc.id);
 
         // Get sender and receiver data
         const remetenteDoc = await getDoc(remetenteDocRef);
         const destinatarioDocSnap = await getDoc(destinatarioDocRef);
-  
+
         if (!remetenteDoc.exists() || !destinatarioDocSnap.exists()) {
           toast({
             variant: "destructive",
@@ -135,10 +136,10 @@ export default function Transfer() {
           });
           return;
         }
-  
+
         let remetenteSaldo = remetenteDoc.data()?.saldo || 0;
         let destinatarioSaldo = destinatarioDocSnap.data()?.saldo || 0;
-  
+
         // Check if sender has enough balance
         if (remetenteSaldo < valorTransferencia) {
           toast({
@@ -148,7 +149,7 @@ export default function Transfer() {
           });
           return;
         }
-  
+
         // Perform the transfer
         remetenteSaldo -= valorTransferencia;
         destinatarioSaldo += valorTransferencia;
@@ -157,20 +158,20 @@ export default function Transfer() {
         await updateDoc(remetenteDocRef, {
           saldo: remetenteSaldo,
         });
-  
+
         // Update receiver's balance
         await updateDoc(destinatarioDocRef, {
           saldo: destinatarioSaldo,
         });
 
-          // Record the transaction
-          const transactionData = {
-            remetente: userId,
-            destinatario: destinatarioDoc.id,
-            valor: valorTransferencia,
-            data: new Date().toISOString(),
-          };
-          await collection(db, "transactions").add(transactionData);
+        // Record the transaction
+        const transactionData = {
+          remetente: userId,
+          destinatario: destinatarioDoc.id,
+          valor: valorTransferencia,
+          data: new Date().toISOString(),
+        };
+        await addDoc(collection(db, "transactions"), transactionData);
 
         toast({
           title: "Transferência realizada com sucesso!",
