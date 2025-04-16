@@ -36,6 +36,8 @@ interface Transaction {
   destinatario: string;
   valor: number;
   data: string;
+  remetenteNome: string;
+  destinatarioNome: string;
 }
 
 export default function History() {
@@ -50,24 +52,58 @@ export default function History() {
         const userId = auth.currentUser.uid;
         const transactionsCollection = collection(db, "transactions");
 
+        // Query transactions where the user is either the sender or the recipient
         const q = query(
           transactionsCollection,
           where("remetente", "==", userId),
           orderBy("data", "desc")
         );
 
+        const q2 = query(
+          transactionsCollection,
+          where("destinatario", "==", userId),
+          orderBy("data", "desc")
+        );
+
         const querySnapshot = await getDocs(q);
+        const querySnapshot2 = await getDocs(q2);
+
         const transactionList: Transaction[] = [];
-        querySnapshot.forEach((doc) => {
+
+        // Process sender transactions
+        querySnapshot.forEach(async (doc) => {
           const data = doc.data();
+          const remetenteNome = data.remetenteNome || "Unknown Sender";
+          const destinatarioNome = data.destinatarioNome || "Unknown Receiver";
           transactionList.push({
             id: doc.id,
             remetente: data.remetente,
             destinatario: data.destinatario,
             valor: data.valor,
             data: data.data,
+            remetenteNome: remetenteNome,
+            destinatarioNome: destinatarioNome,
           });
         });
+
+        // Process receiver transactions
+        querySnapshot2.forEach(async (doc) => {
+          const data = doc.data();
+          const remetenteNome = data.remetenteNome || "Unknown Sender";
+          const destinatarioNome = data.destinatarioNome || "Unknown Receiver";
+          transactionList.push({
+            id: doc.id,
+            remetente: data.remetente,
+            destinatario: data.destinatario,
+            valor: data.valor,
+            data: data.data,
+            remetenteNome: remetenteNome,
+            destinatarioNome: destinatarioNome,
+          });
+        });
+        
+        transactionList.sort((a, b) => (b.data > a.data ? 1 : -1));
+
         setTransactions(transactionList);
       }
     };
@@ -99,7 +135,9 @@ export default function History() {
                   className="border rounded-md p-2 bg-muted"
                 >
                   <p>
-                    Destinatário: {transaction.destinatario}
+                    {transaction.remetente === auth.currentUser?.uid
+                      ? `Enviado para: ${transaction.destinatarioNome}`
+                      : `Recebido de: ${transaction.remetenteNome}`}
                   </p>
                   <p>
                     Valor: R$ {transaction.valor.toFixed(2)}
