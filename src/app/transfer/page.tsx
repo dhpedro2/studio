@@ -199,6 +199,10 @@ export default function Transfer() {
             2
           )} transferido para ${destinatarioNome} (${destinatarioEmail}).`,
         });
+         toast({
+            title: "Transferência realizada com sucesso!",
+            description: "Transferência enviada com sucesso.",
+          });
 
         setDestinatarioEmail("");
         setValor("");
@@ -269,4 +273,5 @@ export default function Transfer() {
     </div>
   );
 }
+
 
