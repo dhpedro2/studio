@@ -16,6 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -51,65 +53,59 @@ export default function History() {
       if (auth.currentUser) {
         const userId = auth.currentUser.uid;
         const transactionsCollection = collection(db, "transactions");
-
-        // Query transactions where the user is either the sender or the recipient
-        const qSent = query(
+  
+        // Query transactions where the user is either the sender OR the recipient
+        const q = query(
           transactionsCollection,
           where("remetente", "==", userId),
           orderBy("data", "desc")
         );
-
-        const qReceived = query(
+        
+        const q2 = query(
           transactionsCollection,
           where("destinatario", "==", userId),
           orderBy("data", "desc")
         );
 
         const [sentSnapshot, receivedSnapshot] = await Promise.all([
-          getDocs(qSent),
-          getDocs(qReceived)
+          getDocs(q),
+          getDocs(q2)
         ]);
-
+        
         const transactionList: Transaction[] = [];
 
-        // Process sender transactions
-        sentSnapshot.forEach(async (doc) => {
-          const data = doc.data();
-          const remetenteNome = data.remetenteNome || "Unknown Sender";
-          const destinatarioNome = data.destinatarioNome || "Unknown Receiver";
-          transactionList.push({
-            id: doc.id,
-            remetente: data.remetente,
-            destinatario: data.destinatario,
-            valor: data.valor,
-            data: data.data,
-            remetenteNome: remetenteNome,
-            destinatarioNome: destinatarioNome,
-          });
+        sentSnapshot.forEach((doc) => {
+            const data = doc.data();
+            transactionList.push({
+                id: doc.id,
+                remetente: data.remetente,
+                destinatario: data.destinatario,
+                valor: data.valor,
+                data: data.data,
+                remetenteNome: data.remetenteNome,
+                destinatarioNome: data.destinatarioNome,
+            });
+        });
+
+        receivedSnapshot.forEach((doc) => {
+            const data = doc.data();
+            transactionList.push({
+                id: doc.id,
+                remetente: data.remetente,
+                destinatario: data.destinatario,
+                valor: data.valor,
+                data: data.data,
+                remetenteNome: data.remetenteNome,
+                destinatarioNome: data.destinatarioNome,
+            });
         });
         
-        // Process receiver transactions
-        receivedSnapshot.forEach(async (doc) => {
-          const data = doc.data();
-          const remetenteNome = data.remetenteNome || "Unknown Sender";
-          const destinatarioNome = data.destinatarioNome || "Unknown Receiver";
-          transactionList.push({
-            id: doc.id,
-            remetente: data.remetente,
-            destinatario: data.destinatario,
-            valor: data.valor,
-            data: data.data,
-            remetenteNome: remetenteNome,
-            destinatarioNome: destinatarioNome,
-          });
-        });
-
         transactionList.sort((a, b) => (b.data > a.data ? 1 : -1));
-
+  
         setTransactions(transactionList);
       }
     };
-
+  
     loadTransactions();
   }, [auth.currentUser, db]);
 
@@ -145,7 +141,7 @@ export default function History() {
                     Valor: R$ {transaction.valor.toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Data: {transaction.data}
+                  Data: {format(new Date(transaction.data), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 </li>
               ))}
