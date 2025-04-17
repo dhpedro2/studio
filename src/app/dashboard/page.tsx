@@ -58,10 +58,25 @@ export default function Dashboard() {
         setLoading(true);
         fetchUserBalance(user.uid);
         setIsAdmin(false); // Default to false, will be updated by the next listener
-
-        // Listen for real-time balance updates
+        
+        //Check if user exists
         const userDocRef = doc(db, "users", user.uid);
-        onSnapshot(userDocRef, (doc) => {
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+          // User document not found, redirect to login
+          router.push("/");
+          toast({
+            variant: "destructive",
+            title: "Conta não encontrada",
+            description: "Sua conta pode ter sido excluída. Por favor, faça login novamente.",
+          });
+          return;
+        }
+        
+        // Listen for real-time balance updates
+        const userDocRef2 = doc(db, "users", user.uid);
+        onSnapshot(userDocRef2, (doc) => {
           if (doc.exists()) {
             setSaldo(doc.data().saldo || 0);
           }
