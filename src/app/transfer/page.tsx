@@ -59,7 +59,8 @@ export default function Transfer() {
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const [valorTransferencia, setValorTransferencia] = useState<number>(0);
-  const [transferSuccess, setTransferSuccess] = useState(false); // State for success message
+  const [transferSuccess, setTransferSuccess] = useState(false);
+  const [saldo, setSaldo] = useState<number | null>(null);
 
   // Store recipient info for use in success message
   const [successDestinatarioNome, setSuccessDestinatarioNome] = useState("");
@@ -91,6 +92,23 @@ export default function Transfer() {
 
     fetchDestinatarioNome();
   }, [destinatarioEmail, db]);
+
+    useEffect(() => {
+        const loadSaldo = async () => {
+            if (auth.currentUser) {
+                const userDocRef = doc(db, "users", auth.currentUser.uid);
+                const userDoc = await getDoc(userDocRef);
+
+                if (userDoc.exists()) {
+                    setSaldo(userDoc.data().saldo || 0);
+                } else {
+                    setSaldo(0);
+                }
+            }
+        };
+
+        loadSaldo();
+    }, [auth.currentUser, db]);
 
   const handleTransfer = async () => {
     if (!destinatarioEmail || !valor) {
@@ -170,12 +188,12 @@ export default function Transfer() {
 
         // Check if sender has enough balance
         if (remetenteSaldo < parsedValor) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Saldo insuficiente.",
-          });
-          return;
+           toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Saldo insuficiente.",
+            });
+            return;
         }
 
         // Perform the transfer
@@ -242,6 +260,11 @@ export default function Transfer() {
           <CardTitle>Realizar Transferência</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
+            <div>
+                <p className="text-lg font-semibold">
+                    Saldo Atual: R$ {saldo !== null ? saldo.toFixed(2) : "Carregando..."}
+                </p>
+            </div>
           <div className="grid gap-2">
             <Label htmlFor="destinatario">Email do Destinatário</Label>
             <Input
