@@ -149,6 +149,16 @@ export default function Transfer() {
       return;
     }
 
+     // Check if sender has enough balance
+      if (saldo === null || parsedValor > saldo) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Saldo insuficiente.",
+        });
+        return;
+      }
+
     setValorTransferencia(parsedValor);
     setOpen(true);
   };
@@ -343,3 +353,4 @@ export default function Transfer() {
     </div>
   );
 }
+
