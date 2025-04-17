@@ -11,6 +11,7 @@ import {
   orderBy,
   getDocs,
   getDoc,
+  doc, // Import the 'doc' function
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -169,4 +170,3 @@ export default function History() {
     </div>
   );
 }
-
