@@ -34,6 +34,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User } from 'lucide-react';
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -63,6 +64,7 @@ export default function Transfer() {
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [saldo, setSaldo] = useState<number | null>(null);
   const [insufficientBalanceOpen, setInsufficientBalanceOpen] = useState(false);
+  const [sameAccountOpen, setSameAccountOpen] = useState(false);
 
   // Store recipient info for use in success message
   const [successDestinatarioNome, setSuccessDestinatarioNome] = useState("");
@@ -148,6 +150,22 @@ export default function Transfer() {
         description: "Por favor, insira um valor válido para transferência.",
       });
       return;
+    }
+
+    // Check if sender and receiver are the same
+    const usersCollection = collection(db, "users");
+    const q = query(usersCollection, where("email", "==", destinatarioEmail));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const destinatarioDoc = querySnapshot.docs[0];
+      if (userId === destinatarioDoc.id) {
+        setValorTransferencia(parsedValor);
+        setSuccessDestinatarioNome(destinatarioNome);
+        setSuccessDestinatarioEmail(destinatarioEmail);
+        setSameAccountOpen(true);
+        return;
+      }
     }
 
      // Check if sender has enough balance
@@ -315,6 +333,9 @@ export default function Transfer() {
               onChange={(e) => setValor(e.target.value)}
             />
           </div>
+           <Link href="/transferencias-antigas">
+             <Button variant="secondary">Transferências Recentes</Button>
+           </Link>
           <Button onClick={handleTransfer}>Transferir</Button>
 
           <AlertDialog open={open} onOpenChange={setOpen}>
@@ -364,9 +385,22 @@ export default function Transfer() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+           <AlertDialog open={sameAccountOpen} onOpenChange={setSameAccountOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Transferência Inválida</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Você não pode transferir para sua própria conta.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogAction onClick={() => setSameAccountOpen(false)}>OK</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
         </CardContent>
       </Card>
     </div>
   );
 }
-
