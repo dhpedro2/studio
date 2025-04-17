@@ -198,6 +198,11 @@ export default function Transfer() {
 
         setDestinatarioEmail("");
         setValor("");
+
+        toast({
+          title: "Transferência realizada com sucesso!",
+          description: `R$ ${valorTransferencia} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
+        });
       }
     } catch (error: any) {
       toast({
