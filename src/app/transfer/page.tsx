@@ -58,7 +58,12 @@ export default function Transfer() {
   const db = getFirestore();
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
-    const [valorTransferencia, setValorTransferencia] = useState<number>(0);
+  const [valorTransferencia, setValorTransferencia] = useState<number>(0);
+  const [transferSuccess, setTransferSuccess] = useState(false); // State for success message
+
+  // Store recipient info for use in success message
+  const [successDestinatarioNome, setSuccessDestinatarioNome] = useState("");
+  const [successDestinatarioEmail, setSuccessDestinatarioEmail] = useState("");
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -165,12 +170,12 @@ export default function Transfer() {
 
         // Check if sender has enough balance
         if (remetenteSaldo < parsedValor) {
-             toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Saldo insuficiente.",
-            });
-            return;
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Saldo insuficiente.",
+          });
+          return;
         }
 
         // Perform the transfer
@@ -196,10 +201,16 @@ export default function Transfer() {
         };
         await addDoc(collection(db, "transactions"), transactionData);
 
-        setSuccessOpen(true);
+        // Store recipient info before clearing fields
+        setSuccessDestinatarioNome(destinatarioNome);
+        setSuccessDestinatarioEmail(destinatarioEmail);
 
+        // Clear input fields
         setDestinatarioEmail("");
         setValor("");
+
+        setSuccessOpen(true);
+        setTransferSuccess(true);
 
         toast({
           title: "Transferência realizada com sucesso!",
@@ -268,19 +279,24 @@ export default function Transfer() {
             </AlertDialogContent>
           </AlertDialog>
 
-          <AlertDialog open={successOpen} onOpenChange={setSuccessOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Transferência realizada com sucesso!</AlertDialogTitle>
-                <AlertDialogDescription>
-                  R$ {valorTransferencia} foi transferido para {destinatarioNome} ({destinatarioEmail}).
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogAction onClick={() => setSuccessOpen(false)}>OK</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {transferSuccess && (
+            <AlertDialog open={successOpen} onOpenChange={setSuccessOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Transferência realizada com sucesso!</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    R$ {valorTransferencia} foi transferido para {successDestinatarioNome} ({successDestinatarioEmail}).
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogAction onClick={() => {
+                    setSuccessOpen(false);
+                    setTransferSuccess(false); // Reset the transferSuccess state
+                  }}>OK</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </CardContent>
       </Card>
     </div>
