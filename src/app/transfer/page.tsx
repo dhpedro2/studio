@@ -52,6 +52,7 @@ export default function Transfer() {
   const [valor, setValor] = useState("");
   const [destinatarioNome, setDestinatarioNome] = useState("");
   const [open, setOpen] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
   const { toast } = useToast();
   const auth = getAuth();
   const db = getFirestore();
@@ -193,10 +194,7 @@ export default function Transfer() {
         };
         await addDoc(collection(db, "transactions"), transactionData);
 
-        toast({
-            title: "Transferência realizada com sucesso!",
-            description: `R$ ${valorTransferencia.toFixed(2)} transferido para ${destinatarioNome} (${destinatarioEmail}).`,
-        });
+        setSuccessOpen(true);
 
         setDestinatarioEmail("");
         setValor("");
@@ -259,6 +257,20 @@ export default function Transfer() {
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setOpen(false)}>Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={confirmTransfer}>Confirmar</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={successOpen} onOpenChange={setSuccessOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Transferência realizada com sucesso!</AlertDialogTitle>
+                <AlertDialogDescription>
+                  R$ {valor} foi transferido para {destinatarioNome} ({destinatarioEmail}).
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setSuccessOpen(false)}>OK</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
