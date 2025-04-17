@@ -333,9 +333,7 @@ export default function Transfer() {
               onChange={(e) => setValor(e.target.value)}
             />
           </div>
-           <Link href="/transferencias-antigas">
-             <Button variant="secondary">Transferências Recentes</Button>
-           </Link>
+           
           <Button onClick={handleTransfer}>Transferir</Button>
 
           <AlertDialog open={open} onOpenChange={setOpen}>
