@@ -73,6 +73,7 @@ export default function Home() {
                         email: email,
                         saldo: 0, // Initial balance
                         isAdmin: false, // Set admin status
+                        createdAt: new Date().toISOString(), // Save account creation date
                     });
 
                     toast({
@@ -176,3 +177,4 @@ export default function Home() {
     </div>
   );
 }
+
