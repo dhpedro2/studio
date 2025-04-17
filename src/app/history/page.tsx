@@ -22,8 +22,6 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { jsPDF } from "jspdf";
-import autoTable from 'jspdf-autotable';
 import { useToast } from "@/hooks/use-toast";
 
 const firebaseConfig = {
@@ -166,58 +164,6 @@ export default function History() {
     setFilteredTransactions(filtered);
   }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, auth.currentUser?.uid]);
 
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-
-    const tableColumn = ["Data", "Tipo", "De/Para", "Valor"];
-    const tableRows: string[][] = [];
-
-    filteredTransactions.forEach(transaction => {
-      const date = format(parseISO(transaction.data), "dd/MM/yyyy HH:mm", { locale: ptBR });
-      const type = transaction.remetente === auth.currentUser?.uid ? "Saída" : "Entrada";
-      const toFrom = transaction.remetente === auth.currentUser?.uid ? transaction.destinatarioNome : transaction.remetenteNome;
-      const value = `R$ ${transaction.valor.toFixed(2)}`;
-
-      tableRows.push([date, type, toFrom, value]);
-    });
-
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-    });
-
-    doc.save(`extrato-${new Date().toLocaleDateString()}.pdf`);
-    toast({
-      title: "PDF exportado com sucesso!",
-      description: "O arquivo PDF foi salvo.",
-    });
-  };
-
-  const handleExportCSV = () => {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Data,Tipo,De/Para,Valor\r\n";
-
-    filteredTransactions.forEach(transaction => {
-      const date = format(parseISO(transaction.data), "dd/MM/yyyy HH:mm", { locale: ptBR });
-      const type = transaction.remetente === auth.currentUser?.uid ? "Saída" : "Entrada";
-      const toFrom = transaction.remetente === auth.currentUser?.uid ? transaction.destinatarioNome : transaction.remetenteNome;
-      const value = `R$ ${transaction.valor.toFixed(2)}`;
-
-      csvContent += `${date},${type},${toFrom},${value}\r\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `extrato-${new Date().toLocaleDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    toast({
-      title: "CSV exportado com sucesso!",
-      description: "O arquivo CSV foi baixado.",
-    });
-  };
-
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
       {/* Navigation Buttons */}
@@ -286,11 +232,6 @@ export default function History() {
                 onChange={(e) => setMaxValue(e.target.value ? parseFloat(e.target.value) : null)}
               />
             </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button onClick={handleExportPDF} variant="outline">Exportar para PDF</Button>
-            <Button onClick={handleExportCSV} variant="outline">Exportar para CSV</Button>
           </div>
 
           {filteredTransactions.length > 0 ? (
