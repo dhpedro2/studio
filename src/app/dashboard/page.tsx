@@ -23,7 +23,7 @@ const firebaseConfig = {
   measurementId: "G-JPFXDJBSGM",
 };
 
-export default function Dashboard() {
+export default function Dashboard({updateBalanceCallback}: {updateBalanceCallback?: ()=> void}) {
   const [saldo, setSaldo] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [users, setUsers] = useState<any[]>([]);
@@ -143,7 +143,7 @@ export default function Dashboard() {
         };
     
         fetchUsers();
-
+        updateBalanceCallback?.()
       } else {
         toast({
           variant: "destructive",

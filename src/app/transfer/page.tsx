@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import {
@@ -234,6 +234,8 @@ export default function Transfer() {
           title: "Transferência realizada com sucesso!",
           description: `R$ ${parsedValor} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
         });
+        // Force refresh of the dashboard page to update the balance.
+         router.push('/dashboard');
       }
     } catch (error: any) {
       toast({
@@ -325,4 +327,3 @@ export default function Transfer() {
     </div>
   );
 }
-
