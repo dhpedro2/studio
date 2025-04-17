@@ -58,6 +58,7 @@ export default function Transfer() {
   const db = getFirestore();
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
+    const [valorTransferencia, setValorTransferencia] = useState<number>(0);
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -96,9 +97,9 @@ export default function Transfer() {
       return;
     }
 
-    const valorTransferencia = parseFloat(valor);
+    const parsedValor = parseFloat(valor);
 
-    if (isNaN(valorTransferencia) || valorTransferencia <= 0) {
+    if (isNaN(parsedValor) || parsedValor <= 0) {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -107,6 +108,7 @@ export default function Transfer() {
       return;
     }
 
+    setValorTransferencia(parsedValor);
     setOpen(true);
   };
 
@@ -114,7 +116,7 @@ export default function Transfer() {
     setOpen(false);
     try {
       if (auth.currentUser) {
-        const valorTransferencia = parseFloat(valor);
+        const parsedValor = parseFloat(valor);
 
         // Get references to the sender and receiver documents
         const remetenteDocRef = doc(db, "users", userId!);
@@ -162,7 +164,7 @@ export default function Transfer() {
         let destinatarioSaldo = destinatarioDocSnap.data()?.saldo || 0;
 
         // Check if sender has enough balance
-        if (remetenteSaldo < valorTransferencia) {
+        if (remetenteSaldo < parsedValor) {
              toast({
                 variant: "destructive",
                 title: "Erro",
@@ -172,8 +174,8 @@ export default function Transfer() {
         }
 
         // Perform the transfer
-        remetenteSaldo -= valorTransferencia;
-        destinatarioSaldo += valorTransferencia;
+        remetenteSaldo -= parsedValor;
+        destinatarioSaldo += parsedValor;
 
         // Update sender's balance
         await updateDoc(remetenteDocRef, {
@@ -189,7 +191,7 @@ export default function Transfer() {
         const transactionData = {
           remetente: userId,
           destinatario: destinatarioDoc.id,
-          valor: valorTransferencia,
+          valor: parsedValor,
           data: new Date().toISOString(),
         };
         await addDoc(collection(db, "transactions"), transactionData);
@@ -201,7 +203,7 @@ export default function Transfer() {
 
         toast({
           title: "Transferência realizada com sucesso!",
-          description: `R$ ${valorTransferencia} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
+          description: `R$ ${parsedValor} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
         });
       }
     } catch (error: any) {
@@ -271,7 +273,7 @@ export default function Transfer() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Transferência realizada com sucesso!</AlertDialogTitle>
                 <AlertDialogDescription>
-                  R$ {valor} foi transferido para {destinatarioNome} ({destinatarioEmail}).
+                  R$ {valorTransferencia} foi transferido para {destinatarioNome} ({destinatarioEmail}).
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
