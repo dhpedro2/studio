@@ -248,7 +248,7 @@ export default function Transfer() {
     <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
       {/* Navigation Buttons */}
       <div className="flex justify-around w-full max-w-md mb-8">
-        <Button onClick={() => router.push("/")} variant="ghost"><Home className="mr-2" />Início</Button>
+        <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
         <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
         <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
         <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
@@ -325,3 +325,4 @@ export default function Transfer() {
     </div>
   );
 }
+
