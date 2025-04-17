@@ -13,6 +13,7 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -93,21 +94,38 @@ export default function Transfer() {
     fetchDestinatarioNome();
   }, [destinatarioEmail, db]);
 
-    useEffect(() => {
-        const loadSaldo = async () => {
-            if (auth.currentUser) {
-                const userDocRef = doc(db, "users", auth.currentUser.uid);
-                const userDoc = await getDoc(userDocRef);
+  useEffect(() => {
+    const loadSaldo = async () => {
+      if (auth.currentUser) {
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
 
-                if (userDoc.exists()) {
-                    setSaldo(userDoc.data().saldo || 0);
+        if (userDoc.exists()) {
+          setSaldo(userDoc.data().saldo || 0);
+        } else {
+          setSaldo(0);
+        }
+      }
+    };
+
+    loadSaldo();
+  }, [auth.currentUser, db]);
+
+    useEffect(() => {
+        if (auth.currentUser) {
+            const userDocRef = doc(db, "users", auth.currentUser.uid);
+
+            // Subscribe to real-time updates
+            const unsubscribe = onSnapshot(userDocRef, (doc) => {
+                if (doc.exists()) {
+                    setSaldo(doc.data().saldo || 0);
                 } else {
                     setSaldo(0);
                 }
-            }
-        };
+            });
 
-        loadSaldo();
+            return () => unsubscribe();
+        }
     }, [auth.currentUser, db]);
 
   const handleTransfer = async () => {
@@ -188,12 +206,12 @@ export default function Transfer() {
 
         // Check if sender has enough balance
         if (remetenteSaldo < parsedValor) {
-           toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Saldo insuficiente.",
-            });
-            return;
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Saldo insuficiente.",
+          });
+          return;
         }
 
         // Perform the transfer
@@ -234,8 +252,6 @@ export default function Transfer() {
           title: "Transferência realizada com sucesso!",
           description: `R$ ${parsedValor} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
         });
-        // Force refresh of the dashboard page to update the balance.
-         router.push('/dashboard');
       }
     } catch (error: any) {
       toast({
@@ -262,11 +278,11 @@ export default function Transfer() {
           <CardTitle>Realizar Transferência</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
-            <div>
-                <p className="text-lg font-semibold">
-                    Saldo Atual: R$ {saldo !== null ? saldo.toFixed(2) : "Carregando..."}
-                </p>
-            </div>
+          <div>
+            <p className="text-lg font-semibold">
+              Saldo Atual: R$ {saldo !== null ? saldo.toFixed(2) : "Carregando..."}
+            </p>
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="destinatario">Email do Destinatário</Label>
             <Input

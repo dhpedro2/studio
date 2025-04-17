@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
-import { getFirestore, doc, getDoc, collection, getDocs, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, onSnapshot } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -23,7 +23,7 @@ const firebaseConfig = {
   measurementId: "G-JPFXDJBSGM",
 };
 
-export default function Dashboard({updateBalanceCallback}: {updateBalanceCallback?: ()=> void}) {
+export default function Dashboard() {
   const [saldo, setSaldo] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [users, setUsers] = useState<any[]>([]);
@@ -38,27 +38,47 @@ export default function Dashboard({updateBalanceCallback}: {updateBalanceCallbac
   const auth = getAuth();
   const db = getFirestore();
 
+  const fetchUserBalance = useCallback(async (userId: string) => {
+    const userDoc = doc(db, "users", userId);
+    const docSnap = await getDoc(userDoc);
+
+    if (docSnap.exists()) {
+      setSaldo(docSnap.data().saldo || 0);
+    } else {
+      console.log("No such document!");
+      setSaldo(0);
+    }
+  }, [db]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const userDoc = doc(db, "users", user.uid);
-        const docSnap = await getDoc(userDoc);
+        fetchUserBalance(user.uid);
+        setIsAdmin(false); // Default to false, will be updated by the next listener
 
-        if (docSnap.exists()) {
-          setSaldo(docSnap.data().saldo || 0);
-          setIsAdmin(docSnap.data().isAdmin || false);
-        } else {
-          console.log("No such document!");
-          setSaldo(0);
-          setIsAdmin(false);
-        }
+        // Listen for real-time balance updates
+        const userDocRef = doc(db, "users", user.uid);
+        onSnapshot(userDocRef, (doc) => {
+          if (doc.exists()) {
+            setSaldo(doc.data().saldo || 0);
+          }
+        });
+
+        // Listen for admin status
+        const adminDocRef = doc(db, "users", user.uid);
+        getDoc(adminDocRef).then((docSnap) => {
+          if (docSnap.exists()) {
+            setIsAdmin(docSnap.data().isAdmin || false);
+          }
+        });
+
       } else {
         router.push("/");
       }
     });
 
     return () => unsubscribe();
-  }, [auth, db, router]);
+  }, [auth, db, router, fetchUserBalance]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -143,7 +163,6 @@ export default function Dashboard({updateBalanceCallback}: {updateBalanceCallbac
         };
     
         fetchUsers();
-        updateBalanceCallback?.()
       } else {
         toast({
           variant: "destructive",
