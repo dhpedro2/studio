@@ -2,19 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import {
   getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
   doc,
-  getDoc,
+  getDoc
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User } from 'lucide-react';
+import { Home, Wallet, Clock, User, Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format } from 'date-fns';
@@ -29,6 +25,7 @@ import {
     Legend,
     ResponsiveContainer
   } from 'recharts';
+import { useToast } from "@/hooks/use-toast";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -62,6 +59,7 @@ export default function Profile() {
   const auth = getAuth();
   const db = getFirestore();
   const router = useRouter();
+   const { toast } = useToast();
 
   useEffect(() => {
     const loadTransactions = async () => {
@@ -158,6 +156,23 @@ export default function Profile() {
     loadTransactions();
   }, [auth.currentUser, db]);
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push("/");
+      toast({
+        title: "Logout realizado com sucesso!",
+        description: "Redirecionando para a página inicial...",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao realizar o logout",
+        description: error.message,
+      });
+    }
+  };
+
   // Prepare data for the chart
   const chartData = Object.entries(transactionFrequency).map(([date, count]) => ({
     date,
@@ -225,10 +240,13 @@ export default function Profile() {
                 </BarChart>
               </ResponsiveContainer>
           </div>
-          
+          <div className="flex flex-col space-y-2">
+             <Button variant="destructive" onClick={handleLogout}>
+                Sair
+             </Button>
+           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-

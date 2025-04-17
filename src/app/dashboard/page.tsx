@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User } from 'lucide-react';
+import { Home, Wallet, Clock, User, Settings } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -172,27 +172,32 @@ export default function Dashboard() {
       <Separator className="w-full max-w-md mb-8" />
 
       <Card className="w-96">
-        <CardHeader className="space-y-1">
-          <CardTitle>Painel do Usuário</CardTitle>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-2xl">Painel do Usuário</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div>
-            <p className="text-lg font-semibold">
+            <p className="text-3xl font-semibold">
               Saldo Atual: R$ {saldo !== null ? saldo.toFixed(2) : "Carregando..."}
             </p>
           </div>
           <div className="flex flex-col space-y-2">
-            <Button onClick={() => router.push("/transfer")}>
-              Realizar Transferência
+            <Button onClick={() => router.push("/transfer")} variant="outline">
+              <Wallet className="mr-2" />
+              Transferir
             </Button>
-            <Button onClick={() => router.push("/history")}>
+            <Button onClick={() => router.push("/history")} variant="outline">
+              <Clock className="mr-2" />
               Histórico de Transações
-            </Button>
-            <Button variant="destructive" onClick={handleLogout}>
-              Sair
             </Button>
           </div>
         </CardContent>
+         <CardContent className="flex items-center justify-end">
+           <Button onClick={() => router.push("/profile")} variant="ghost">
+             <Settings className="mr-2" />
+             Perfil
+           </Button>
+         </CardContent>
       </Card>
 
       {isAdmin && (
@@ -234,4 +239,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
