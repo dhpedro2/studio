@@ -11,15 +11,20 @@ import {
   orderBy,
   getDocs,
   getDoc,
-  doc, // Import the 'doc' function
+  doc,
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { jsPDF } from "jspdf";
+import autoTable from 'jspdf-autotable';
+import { useToast } from "@/hooks/use-toast";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -46,49 +51,54 @@ interface Transaction {
 
 export default function History() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [typeFilter, setTypeFilter] = useState<"entrada" | "saída" | "todos">("todos");
+  const [minValue, setMinValue] = useState<number | null>(null);
+  const [maxValue, setMaxValue] = useState<number | null>(null);
   const auth = getAuth();
   const db = getFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadTransactions = async () => {
       if (!auth.currentUser) {
         return;
       }
-  
+
       const userId = auth.currentUser.uid;
       const transactionsCollection = collection(db, "transactions");
-  
-      // Query transactions where the user is either the sender OR the recipient
-      const q = query(
+
+      const sentQuery = query(
         transactionsCollection,
         where("remetente", "==", userId),
         orderBy("data", "desc")
       );
-  
-      const q2 = query(
+
+      const receivedQuery = query(
         transactionsCollection,
         where("destinatario", "==", userId),
         orderBy("data", "desc")
       );
-  
+
       const [sentSnapshot, receivedSnapshot] = await Promise.all([
-        getDocs(q),
-        getDocs(q2)
+        getDocs(sentQuery),
+        getDocs(receivedQuery)
       ]);
-  
+
       const transactionList: Transaction[] = [];
-  
-      // Helper function to fetch user name
+
       const fetchUserName = async (userId: string) => {
-        const userDoc = await getDoc(doc(db, "users", userId));
+        const userDocRef = doc(db, "users", userId);
+        const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
           return userDoc.data().name;
         }
         return "Nome Desconhecido";
       };
-  
-      // Process sent transactions
+
       for (const doc of sentSnapshot.docs) {
         const data = doc.data();
         const destinatarioNome = await fetchUserName(data.destinatario);
@@ -98,12 +108,11 @@ export default function History() {
           destinatario: data.destinatario,
           valor: data.valor,
           data: data.data,
-          remetenteNome: "Você", // Sender is the current user
+          remetenteNome: "Você",
           destinatarioNome: destinatarioNome,
         });
       }
-  
-      // Process received transactions
+
       for (const doc of receivedSnapshot.docs) {
         const data = doc.data();
         const remetenteNome = await fetchUserName(data.remetente);
@@ -114,16 +123,100 @@ export default function History() {
           valor: data.valor,
           data: data.data,
           remetenteNome: remetenteNome,
-          destinatarioNome: "Você", // Recipient is the current user
+          destinatarioNome: "Você",
         });
       }
-  
-      transactionList.sort((a, b) => (b.data > a.data ? 1 : -1));
+
+      transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
       setTransactions(transactionList);
     };
-  
+
     loadTransactions();
   }, [auth.currentUser, db]);
+
+  useEffect(() => {
+    let filtered = [...transactions];
+
+    if (startDate && endDate) {
+      filtered = filtered.filter(transaction => {
+        const transactionDate = parseISO(transaction.data);
+        return transactionDate >= startDate && transactionDate <= endDate;
+      });
+    }
+
+    if (typeFilter !== "todos") {
+      filtered = filtered.filter(transaction => {
+        if (typeFilter === "entrada") {
+          return transaction.destinatario === auth.currentUser?.uid;
+        } else if (typeFilter === "saída") {
+          return transaction.remetente === auth.currentUser?.uid;
+        }
+        return true;
+      });
+    }
+
+    if (minValue !== null) {
+      filtered = filtered.filter(transaction => transaction.valor >= minValue);
+    }
+
+    if (maxValue !== null) {
+      filtered = filtered.filter(transaction => transaction.valor <= maxValue);
+    }
+
+    setFilteredTransactions(filtered);
+  }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, auth.currentUser?.uid]);
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+
+    const tableColumn = ["Data", "Tipo", "De/Para", "Valor"];
+    const tableRows: string[][] = [];
+
+    filteredTransactions.forEach(transaction => {
+      const date = format(parseISO(transaction.data), "dd/MM/yyyy HH:mm", { locale: ptBR });
+      const type = transaction.remetente === auth.currentUser?.uid ? "Saída" : "Entrada";
+      const toFrom = transaction.remetente === auth.currentUser?.uid ? transaction.destinatarioNome : transaction.remetenteNome;
+      const value = `R$ ${transaction.valor.toFixed(2)}`;
+
+      tableRows.push([date, type, toFrom, value]);
+    });
+
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+    });
+
+    doc.save(`extrato-${new Date().toLocaleDateString()}.pdf`);
+    toast({
+      title: "PDF exportado com sucesso!",
+      description: "O arquivo PDF foi salvo.",
+    });
+  };
+
+  const handleExportCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Data,Tipo,De/Para,Valor\r\n";
+
+    filteredTransactions.forEach(transaction => {
+      const date = format(parseISO(transaction.data), "dd/MM/yyyy HH:mm", { locale: ptBR });
+      const type = transaction.remetente === auth.currentUser?.uid ? "Saída" : "Entrada";
+      const toFrom = transaction.remetente === auth.currentUser?.uid ? transaction.destinatarioNome : transaction.remetenteNome;
+      const value = `R$ ${transaction.valor.toFixed(2)}`;
+
+      csvContent += `${date},${type},${toFrom},${value}\r\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `extrato-${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    toast({
+      title: "CSV exportado com sucesso!",
+      description: "O arquivo CSV foi baixado.",
+    });
+  };
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
@@ -141,9 +234,68 @@ export default function History() {
           <CardTitle>Histórico de Transações</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
-          {transactions.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="startDate">Data Inicial:</Label>
+              <Input
+                type="date"
+                id="startDate"
+                onChange={(e) => setStartDate(e.target.value ? parseISO(e.target.value) : null)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="endDate">Data Final:</Label>
+              <Input
+                type="date"
+                id="endDate"
+                onChange={(e) => setEndDate(e.target.value ? parseISO(e.target.value) : null)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="typeFilter">Tipo:</Label>
+            <select
+              id="typeFilter"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              onChange={(e) => setTypeFilter(e.target.value as "entrada" | "saída" | "todos")}
+              defaultValue="todos"
+            >
+              <option value="todos">Todos</option>
+              <option value="entrada">Entrada</option>
+              <option value="saída">Saída</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="minValue">Valor Mínimo:</Label>
+              <Input
+                type="number"
+                id="minValue"
+                placeholder="Mínimo"
+                onChange={(e) => setMinValue(e.target.value ? parseFloat(e.target.value) : null)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="maxValue">Valor Máximo:</Label>
+              <Input
+                type="number"
+                id="maxValue"
+                placeholder="Máximo"
+                onChange={(e) => setMaxValue(e.target.value ? parseFloat(e.target.value) : null)}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={handleExportPDF} variant="outline">Exportar para PDF</Button>
+            <Button onClick={handleExportCSV} variant="outline">Exportar para CSV</Button>
+          </div>
+
+          {filteredTransactions.length > 0 ? (
             <ul className="space-y-2">
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <li
                   key={transaction.id}
                   className="border rounded-md p-2 bg-muted"
@@ -157,7 +309,7 @@ export default function History() {
                     Valor: R$ {transaction.valor.toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                  Data: {format(new Date(transaction.data), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                    Data: {format(parseISO(transaction.data), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 </li>
               ))}
