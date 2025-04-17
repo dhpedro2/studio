@@ -25,6 +25,7 @@ const firebaseConfig = {
 
 export default function Dashboard() {
   const [saldo, setSaldo] = useState<number | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [users, setUsers] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
@@ -43,6 +44,7 @@ export default function Dashboard() {
     const docSnap = await getDoc(userDoc);
 
     if (docSnap.exists()) {
+      setLoading(false);
       setSaldo(docSnap.data().saldo || 0);
     } else {
       console.log("No such document!");
@@ -53,6 +55,7 @@ export default function Dashboard() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setLoading(true);
         fetchUserBalance(user.uid);
         setIsAdmin(false); // Default to false, will be updated by the next listener
 
@@ -197,7 +200,7 @@ export default function Dashboard() {
         <CardContent className="grid gap-4">
           <div>
             <p className="text-3xl font-semibold">
-              Saldo Atual: R$ {saldo !== null ? saldo.toFixed(2) : "Carregando..."}
+              Saldo Atual: R$ {loading ? "Carregando..." : (saldo !== null ? saldo.toFixed(2) : "0.00")}
             </p>
           </div>
           <div className="flex flex-col space-y-2">
@@ -258,3 +261,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
