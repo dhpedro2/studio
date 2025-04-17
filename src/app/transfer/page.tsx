@@ -162,12 +162,12 @@ export default function Transfer() {
 
         // Check if sender has enough balance
         if (remetenteSaldo < valorTransferencia) {
-           toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Saldo insuficiente.",
-          });
-          return;
+             toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Saldo insuficiente.",
+            });
+            return;
         }
 
         // Perform the transfer
@@ -193,16 +193,10 @@ export default function Transfer() {
         };
         await addDoc(collection(db, "transactions"), transactionData);
 
-         toast({
-          title: "Transferência realizada com sucesso!",
-          description: `R$ ${valorTransferencia.toFixed(
-            2
-          )} transferido para ${destinatarioNome} (${destinatarioEmail}).`,
-        });
-         toast({
+        toast({
             title: "Transferência realizada com sucesso!",
-            description: "Transferência enviada com sucesso.",
-          });
+            description: `R$ ${valorTransferencia.toFixed(2)} transferido para ${destinatarioNome} (${destinatarioEmail}).`,
+        });
 
         setDestinatarioEmail("");
         setValor("");
@@ -273,5 +267,3 @@ export default function Transfer() {
     </div>
   );
 }
-
-
