@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth, updateProfile, updatePassword, signOut } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 import {
   getFirestore,
   doc,
@@ -14,10 +14,8 @@ import {
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, Settings, Moon, Sun, Pencil, Lock } from 'lucide-react';
+import { Home, Wallet, Clock, User, Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -32,8 +30,6 @@ import {
     ResponsiveContainer
   } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
-import { Switch } from "@/components/ui/switch";
-import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const firebaseConfig = {
@@ -65,13 +61,11 @@ export default function Profile() {
   const [transactionFrequency, setTransactionFrequency] = useState<any>({});
   const [name, setName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-  const [newPassword, setNewPassword] = useState<string>("");
   const [createdAt, setCreatedAt] = useState<string | null>(null); // New state for account creation date
   const auth = getAuth();
   const db = getFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     const loadTransactions = async () => {
@@ -186,50 +180,6 @@ export default function Profile() {
     }
   };
 
-  const handleUpdateName = async () => {
-        try {
-            if (auth.currentUser && name) {
-                await updateProfile(auth.currentUser, {
-                    displayName: name,
-                });
-
-                const userDocRef = doc(db, "users", auth.currentUser.uid);
-                await updateDoc(userDocRef, {
-                    name: name,
-                });
-
-                toast({
-                    title: "Nome atualizado com sucesso!",
-                    description: "Seu nome foi atualizado.",
-                });
-            }
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Erro ao atualizar o nome",
-                description: error.message,
-            });
-        }
-    };
-
-    const handleUpdatePassword = async () => {
-        try {
-            if (auth.currentUser && newPassword) {
-                await updatePassword(auth.currentUser, newPassword);
-                toast({
-                    title: "Senha atualizada com sucesso!",
-                    description: "Sua senha foi atualizada.",
-                });
-                setNewPassword("");
-            }
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Erro ao atualizar a senha",
-                description: error.message,
-            });
-        }
-    };
 
   // Prepare data for the chart
   const chartData = Object.entries(transactionFrequency).map(([date, count]) => ({
@@ -267,33 +217,11 @@ export default function Profile() {
               <p className="text-lg font-semibold">
                 Nome: {name || "Carregando..."}
               </p>
-               <Button variant="secondary" size="sm" onClick={handleUpdateName}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Alterar Nome
-              </Button>
+              <p className="text-lg font-semibold">
+                Email: {email || "Carregando..."}
+              </p>
             </div>
           </div>
-          <div>
-            <p className="text-lg font-semibold">
-              Email: {email || "Carregando..."}
-            </p>
-          </div>
-            <div>
-                <Label htmlFor="newPassword">Nova Senha</Label>
-                <div className="flex items-center space-x-2">
-                    <Input
-                        id="newPassword"
-                        type="password"
-                        placeholder="Nova senha"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                    />
-                    <Button variant="secondary" size="sm" onClick={handleUpdatePassword}>
-                        <Lock className="mr-2 h-4 w-4" />
-                        Alterar Senha
-                    </Button>
-                </div>
-            </div>
           <div>
             <p className="text-lg font-semibold">
               Total Transferido: R$ {totalAmountTransferred.toFixed(2)}
@@ -336,18 +264,8 @@ export default function Profile() {
                 Sair
              </Button>
            </div>
-           <div className="flex items-center space-x-2">
-              <Sun className="h-4 w-4" />
-              <Switch
-                  id="theme"
-                  checked={theme === 'dark'}
-                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-              />
-              <Moon className="h-4 w-4" />
-            </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-
