@@ -62,6 +62,7 @@ export default function Transfer() {
   const [valorTransferencia, setValorTransferencia] = useState<number>(0);
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [saldo, setSaldo] = useState<number | null>(null);
+  const [insufficientBalanceOpen, setInsufficientBalanceOpen] = useState(false);
 
   // Store recipient info for use in success message
   const [successDestinatarioNome, setSuccessDestinatarioNome] = useState("");
@@ -151,15 +152,16 @@ export default function Transfer() {
 
      // Check if sender has enough balance
       if (saldo === null || parsedValor > saldo) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Saldo insuficiente.",
-        });
+        setValorTransferencia(parsedValor);
+        setSuccessDestinatarioNome(destinatarioNome);
+        setSuccessDestinatarioEmail(destinatarioEmail);
+        setInsufficientBalanceOpen(true);
         return;
       }
 
     setValorTransferencia(parsedValor);
+    setSuccessDestinatarioNome(destinatarioNome);
+    setSuccessDestinatarioEmail(destinatarioEmail);
     setOpen(true);
   };
 
@@ -348,6 +350,20 @@ export default function Transfer() {
               </AlertDialogContent>
             </AlertDialog>
           )}
+
+          <AlertDialog open={insufficientBalanceOpen} onOpenChange={setInsufficientBalanceOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Saldo Insuficiente</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Você não tem saldo suficiente para transferir R$ {valorTransferencia} para {successDestinatarioNome} ({successDestinatarioEmail}).
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setInsufficientBalanceOpen(false)}>OK</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>
