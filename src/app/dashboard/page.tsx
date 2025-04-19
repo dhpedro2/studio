@@ -100,12 +100,12 @@ export default function Dashboard() {
         });
 
         // Listen for admin status
-        const adminDocRef = doc(db, "users", user.uid);
-        getDoc(adminDocRef).then((docSnap) => {
-          if (docSnap.exists()) {
-            setIsAdmin(docSnap.data().isAdmin || false);
-          }
-        });
+         const adminDocRef = doc(db, "users", user.uid);
+         getDoc(adminDocRef).then((docSnap) => {
+         if (docSnap.exists()) {
+         setIsAdmin(docSnap.data().isAdmin || false);
+         }
+         });
 
       } else {
         router.push("/");
@@ -385,17 +385,14 @@ export default function Dashboard() {
                     <div className="grid grid-cols-3 gap-4 py-4">
                         <div>
                             <Button variant="outline" className="w-full" onClick={() => setSelectedAmount(1)}>R$ 1</Button>
-                            <img src="https://drive.google.com/file/d/1-0g5REU1Gu0crwChSGmeiZsW5zDaOtSY/view?usp=drive_link" alt="QR Code R$1" style={qrCodeStyle} />
                             <p className="text-sm mt-2">00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C</p>
                         </div>
                         <div>
                             <Button variant="outline" className="w-full" onClick={() => setSelectedAmount(5)}>R$ 5</Button>
-                            <img src="https://drive.google.com/file/d/1S4VHNPVSaC1kVliPTeQqndCKYwQHq3Ns/view?usp=drive_link" alt="QR Code R$5" style={qrCodeStyle} />
                             <p className="text-sm mt-2">00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46</p>
                         </div>
                         <div>
                             <Button variant="outline" className="w-full" onClick={() => setSelectedAmount(10)}>R$ 10</Button>
-                            <img src="https://drive.google.com/file/d/1NoY87rF3qwJylr3ff13Ph--H8z9_q-De/view?usp=drive_link" alt="QR Code R$10" style={qrCodeStyle} />
                             <p className="text-sm mt-2">00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786</p>
                         </div>
                     </div>

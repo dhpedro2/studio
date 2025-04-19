@@ -13,6 +13,8 @@ import {
   doc,
   updateDoc,
   orderBy,
+  addDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,15 +113,15 @@ export default function Admin() {
 
       //Update deposit status and move to approved deposits
       const depositDocRef = doc(db, "pendingDeposits", depositId);
-            const depositData = (await getDoc(depositDocRef)).data();
+      const depositData = (await getDoc(depositDocRef)).data();
 
       await updateDoc(depositDocRef, { status: "approved" });
 
       const approvedDepositsCollection = collection(db, "approvedDeposits");
-            await addDoc(approvedDepositsCollection, depositData);
+      await addDoc(approvedDepositsCollection, depositData);
 
-            //Delete the document from pendingDeposits
-            await deleteDoc(depositDocRef);
+      //Delete the document from pendingDeposits
+      await deleteDoc(depositDocRef);
       
       const currentBalance = userDoc.data().saldo || 0;
       await updateDoc(userDocRef, { saldo: currentBalance + amount });
@@ -259,4 +261,3 @@ export default function Admin() {
     </div>
   );
 }
-
