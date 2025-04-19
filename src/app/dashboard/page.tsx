@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, Upload, Settings } from 'lucide-react';
+import { Home, Wallet, Clock, User, Upload, Settings, Download } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import '@/app/globals.css';
 import {
@@ -50,8 +50,14 @@ export default function Dashboard() {
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
     const [pixCode, setPixCode] = useState<string>("");
-        const [isCPFModalOpen, setIsCPFModalOpen] = useState(false);
-        const [cpf, setCPF] = useState<string>("");
+    const [isCPFModalOpen, setIsCPFModalOpen] = useState(false);
+    const [cpf, setCPF] = useState<string>("");
+    const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+    const [withdrawAmount, setWithdrawAmount] = useState<number | null>(null);
+    const [isWithdrawConfirmationModalOpen, setIsWithdrawConfirmationModalOpen] = useState(false);
+    const [pixKey, setPixKey] = useState<string>("");
+    const [isPixKeyModalOpen, setIsPixKeyModalOpen] = useState(false);
+
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
@@ -284,6 +290,80 @@ export default function Dashboard() {
             }
         };
 
+        const handleSelectWithdrawAmount = (amount: number) => {
+            setWithdrawAmount(amount);
+            setIsWithdrawConfirmationModalOpen(true);
+        };
+
+        const handleConfirmWithdraw = () => {
+            setIsWithdrawConfirmationModalOpen(false);
+            setIsPixKeyModalOpen(true);
+        };
+
+        const handleSendWithdrawRequest = async () => {
+            if (!pixKey) {
+                toast({
+                    variant: "destructive",
+                    title: "Erro",
+                    description: "Por favor, insira sua Chave Pix.",
+                });
+                return;
+            }
+
+            if (auth.currentUser && withdrawAmount !== null && saldo !== null) {
+                if (withdrawAmount > saldo) {
+                    toast({
+                        variant: "destructive",
+                        title: "Saldo insuficiente",
+                        description: "Você não tem saldo suficiente para sacar este valor.",
+                    });
+                    setIsPixKeyModalOpen(false);
+                    return;
+                }
+
+                try {
+                    // Send notification to Discord webhook
+                    const webhookBody = {
+                        content: `Novo pedido de saque:\nUsuário: ${auth.currentUser.email}\nData: ${new Date().toLocaleString()}\nValor: R$${withdrawAmount}\nChave Pix: ${pixKey}`
+                    };
+
+                    const webhookUrl = "https://discord.com/api/webhooks/1363289919480528987/MAW66tTBzQXeuFYki7X3zN7VF74KuxdJgnIiujhFerQuFXS5aHElG_aa6cwupr2uhEfZ";
+
+                    const response = await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(webhookBody),
+                    });
+
+                    if (response.ok) {
+                        toast({
+                            title: "Pedido de saque enviado!",
+                            description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
+                        });
+                    } else {
+                        toast({
+                            variant: "destructive",
+                            title: "Erro ao enviar pedido de saque",
+                            description: "Ocorreu um erro ao enviar o pedido. Por favor, tente novamente.",
+                        });
+                    }
+
+                    setIsPixKeyModalOpen(false);
+                    setPixKey("");
+
+                } catch (error: any) {
+                    toast({
+                        variant: "destructive",
+                        title: "Erro ao enviar pedido de saque",
+                        description: error.message,
+                    });
+                }
+            }
+        };
+
+
     return (
         <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
             backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
@@ -339,6 +419,10 @@ export default function Dashboard() {
                         <Button onClick={() => setIsDepositModalOpen(true)} variant="outline">
                             <Upload className="mr-2" />
                             Depositar via Pix
+                        </Button>
+                        <Button onClick={() => setIsWithdrawModalOpen(true)} variant="outline">
+                            <Download className="mr-2" />
+                            Sacar via Pix
                         </Button>
                     </div>
 
@@ -510,6 +594,74 @@ export default function Dashboard() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <Dialog open={isWithdrawModalOpen} onOpenChange={setIsWithdrawModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Sacar via Pix</DialogTitle>
+                        <DialogDescription>
+                            Selecione o valor que deseja sacar.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-3 gap-4 py-4">
+                        <div>
+                            <Button variant="outline" className="w-full" onClick={() => handleSelectWithdrawAmount(1)}>R$ 1</Button>
+                        </div>
+                        <div>
+                            <Button variant="outline" className="w-full" onClick={() => handleSelectWithdrawAmount(5)}>R$ 5</Button>
+                        </div>
+                        <div>
+                            <Button variant="outline" className="w-full" onClick={() => handleSelectWithdrawAmount(10)}>R$ 10</Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isWithdrawConfirmationModalOpen} onOpenChange={setIsWithdrawConfirmationModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirmar Saque</DialogTitle>
+                        <DialogDescription>
+                            Você está prestes a sacar R$ {withdrawAmount}. Confirme para continuar.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" onClick={() => setIsWithdrawConfirmationModalOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button type="button" onClick={() => handleConfirmWithdraw()}>
+                            Confirmar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isPixKeyModalOpen} onOpenChange={setIsPixKeyModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Chave Pix</DialogTitle>
+                        <DialogDescription>
+                            Por favor, insira sua Chave Pix para receber o saque.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-2 py-4">
+                        <Label htmlFor="pixKey">Chave Pix:</Label>
+                        <Input
+                            id="pixKey"
+                            type="text"
+                            placeholder="Sua chave Pix"
+                            value={pixKey}
+                            onChange={(e) => setPixKey(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={() => handleSendWithdrawRequest()}>
+                            Sacar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
+
