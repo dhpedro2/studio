@@ -199,7 +199,6 @@ export default function Profile() {
         <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
         <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
         <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
       </div>
       <Separator className="w-full max-w-md mb-8" />
 
@@ -210,8 +209,7 @@ export default function Profile() {
         <CardContent className="grid gap-4">
           <div className="flex items-center space-x-4">
              <Avatar>
-                <AvatarImage src="https://picsum.photos/500/500" alt="Avatar" />
-                <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
+                 <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
               </Avatar>
             <div>
               <p className="text-lg font-semibold">
@@ -221,35 +219,23 @@ export default function Profile() {
                 Email: {email || "Carregando..."}
               </p>
             </div>
+           
+
+            <Button onClick={handleLogout} variant="destructive">
+              <Settings className="mr-2" />
+              Sair
+            </Button>
           </div>
+
           <div>
-            <p className="text-lg font-semibold">
-              Total Transferido: R$ {totalAmountTransferred.toFixed(2)}
-            </p>
+            <h2 className="text-xl font-semibold mt-4">Valor Total Transferido: R$ {totalAmountTransferred.toFixed(2)}</h2>
           </div>
+
           <div>
-            <p className="text-lg font-semibold">
-              Número de Transações: {transactions.length}
-            </p>
-          </div>
-          {createdAt && (
-              <div>
-                <p className="text-lg font-semibold">
-                  Conta criada em: {format(new Date(createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                </p>
-              </div>
-            )}
-          <div>
+            <h2 className="text-xl font-semibold mt-4">Frequência de Transações</h2>
+            {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={chartData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
+                <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -258,12 +244,10 @@ export default function Profile() {
                   <Bar dataKey="count" fill="#8884d8" />
                 </BarChart>
               </ResponsiveContainer>
+            ) : (
+              <p>Nenhuma transação encontrada para exibir o gráfico.</p>
+            )}
           </div>
-          <div className="flex flex-col space-y-2">
-             <Button variant="destructive" onClick={handleLogout}>
-                Sair
-             </Button>
-           </div>
         </CardContent>
       </Card>
     </div>
