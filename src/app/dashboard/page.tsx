@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, Settings } from 'lucide-react';
+import { Home, Wallet, Clock, User } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -231,7 +231,7 @@ export default function Dashboard() {
         </CardContent>
          <CardContent className="flex items-center justify-end">
            <Button onClick={() => router.push("/profile")} variant="ghost">
-             <Settings className="mr-2" />
+             <User className="mr-2" />
              Perfil
            </Button>
          </CardContent>
@@ -276,4 +276,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
