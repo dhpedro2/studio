@@ -213,16 +213,6 @@ export default function Transfer() {
         const destinatarioDoc = querySnapshot.docs[0];
         const destinatarioDocRef = doc(db, "users", destinatarioDoc.id);
 
-        // Check if sender and receiver are the same
-        if (userId === destinatarioDoc.id) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Você não pode transferir para sua própria conta.",
-          });
-          return;
-        }
-
         // Get sender and receiver data
         const remetenteDoc = await getDoc(remetenteDocRef);
         const destinatarioDocSnap = await getDoc(destinatarioDocRef);
@@ -313,7 +303,7 @@ export default function Transfer() {
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
         <div className="flex justify-center items-center py-4">
-        <h1 className="text-4xl font-semibold text-blue-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
+        <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
           DH Bank
         </h1>
       </div>
