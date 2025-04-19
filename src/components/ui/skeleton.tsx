@@ -1,11 +1,13 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 
 function Skeleton({
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <div
+    <span
       className={cn("animate-pulse rounded-md bg-muted", className)}
       {...props}
     />
@@ -13,3 +15,4 @@ function Skeleton({
 }
 
 export { Skeleton }
+
