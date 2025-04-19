@@ -224,6 +224,10 @@ export default function Dashboard() {
         }
     };
 
+    const handleSelectWithdrawAmount = () => {
+        setIsWithdrawConfirmationModalOpen(true);
+    };
+
         const handleConfirmWithdraw = () => {
             setIsWithdrawConfirmationModalOpen(false);
             setIsPixKeyModalOpen(true);
@@ -310,6 +314,45 @@ export default function Dashboard() {
                 }
             }
         };
+
+    const handleSelectAmount = (amount: number) => {
+        setSelectedAmount(amount);
+        setIsDepositModalOpen(false);
+        setIsConfirmationModalOpen(true);
+    };
+
+    const handleConfirmDeposit = () => {
+        setIsConfirmationModalOpen(false);
+        setIsCPFModalOpen(true);
+    };
+
+    const handleSendCPF = async () => {
+        if (!cpf) {
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Por favor, insira seu CPF.",
+            });
+            return;
+        }
+
+        if (auth.currentUser && selectedAmount !== null) {
+            try {
+                toast({
+                    title: "Depósito solicitado!",
+                    description: `Seu depósito de R$${selectedAmount} está sendo processado.`,
+                });
+                setIsCPFModalOpen(false);
+                setCPF(""); // Clear CPF after sending
+            } catch (error: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Erro ao enviar o comprovante",
+                    description: error.message,
+                });
+            }
+        }
+    };
 
 
     return (
@@ -639,77 +682,7 @@ export default function Dashboard() {
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="button" onClick={async () => {
-                            if (!pixKey) {
-                                toast({
-                                    variant: "destructive",
-                                    title: "Erro",
-                                    description: "Por favor, insira sua Chave Pix.",
-                                });
-                                return;
-                            }
-
-                            if (auth.currentUser && withdrawAmount !== null && saldo !== null) {
-                                if (withdrawAmount > saldo) {
-                                    toast({
-                                        variant: "destructive",
-                                        title: "Saldo insuficiente",
-                                        description: "Você não tem saldo suficiente para sacar este valor.",
-                                    });
-                                    setIsPixKeyModalOpen(false);
-                                    return;
-                                }
-
-                                try {
-                                    // Send notification to Discord webhook
-                                    const webhookBody = {
-                                        content: `Novo pedido de saque:\nUsuário: ${auth.currentUser.email}\nData: ${new Date().toLocaleString()}\nValor: R$${withdrawAmount}\nChave Pix: ${pixKey}`
-                                    };
-
-                                    const webhookUrl = "https://discord.com/api/webhooks/1363289919480528987/MAW66tTBzQXeuFYki7X3zN7VF74KuxdJgnIiujhFerQuFXS5aHElG_aa6cwupr2uhEfZ";
-
-                                    const response = await fetch(webhookUrl, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify(webhookBody),
-                                    });
-
-                                    if (response.ok) {
-                                        // Subtract the withdrawn amount from the user's balance
-                                        const userDocRef = doc(db, "users", auth.currentUser.uid);
-                                        const currentSaldo = saldo;
-                                        const newSaldo = currentSaldo - withdrawAmount;
-
-                                        await updateDoc(userDocRef, {
-                                            saldo: newSaldo,
-                                        });
-
-                                        toast({
-                                            title: "Pedido de saque enviado!",
-                                            description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
-                                        });
-                                    } else {
-                                        toast({
-                                            variant: "destructive",
-                                            title: "Erro ao enviar pedido de saque",
-                                            description: "Ocorreu um erro ao enviar o pedido. Por favor, tente novamente.",
-                                        });
-                                    }
-
-                                    setIsPixKeyModalOpen(false);
-                                    setPixKey("");
-
-                                } catch (error: any) {
-                                    toast({
-                                        variant: "destructive",
-                                        title: "Erro ao enviar pedido de saque",
-                                        description: error.message,
-                                    });
-                                }
-                            }
-                        }}>
+                        <Button type="button" onClick={handleSendWithdrawRequest}>
                             Sacar
                         </Button>
                     </DialogFooter>
@@ -718,5 +691,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
-
