@@ -49,6 +49,7 @@ export default function Dashboard() {
     const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+    const [pixCode, setPixCode] = useState<string>("");
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
@@ -76,7 +77,6 @@ export default function Dashboard() {
                 setLoading(true);
                 fetchUserBalance(user.uid);
                 setIsAdmin(false); // Default to false, will be updated by the next listener
-
                 //Check if user exists
                 const userDocRef = doc(db, "users", user.uid);
                 const userDoc = await getDoc(userDocRef);
@@ -276,6 +276,15 @@ export default function Dashboard() {
     const handleSelectAmount = (amount: number) => {
         setSelectedAmount(amount);
         setIsConfirmationModalOpen(true);
+        let pixCodeValue = "";
+        if (amount === 1) {
+            pixCodeValue = "00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C";
+        } else if (amount === 5) {
+            pixCodeValue = "00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46";
+        } else if (amount === 10) {
+            pixCodeValue = "00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786";
+        }
+        setPixCode(pixCodeValue);
     };
 
     return (
@@ -405,6 +414,63 @@ export default function Dashboard() {
                             Por favor, envie o comprovante de pagamento para o depósito de R$ {selectedAmount}.
                         </DialogDescription>
                     </DialogHeader>
+                    {selectedAmount === 1 && (
+                        <div className="p-4 border rounded-md">
+                            <p className="font-semibold">Chave Pix (Copiar e Colar):</p>
+                            <Input
+                                type="text"
+                                value="00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C"
+                                readOnly
+                                className="mb-2"
+                            />
+                            <Button variant="outline" size="sm" onClick={() => {
+                                navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C");
+                                toast({
+                                    title: "Código Pix copiado!",
+                                    description: "O código Pix de R$ 1 foi copiado para a área de transferência."
+                                });
+                            }}>Copiar Código Pix</Button>
+                        </div>
+                    )}
+
+                    {selectedAmount === 5 && (
+                        <div className="p-4 border rounded-md">
+                            <p className="font-semibold">Chave Pix (Copiar e Colar):</p>
+                            <Input
+                                type="text"
+                                value="00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46"
+                                readOnly
+                                className="mb-2"
+                            />
+                            <Button variant="outline" size="sm" onClick={() => {
+                                navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46");
+                                toast({
+                                    title: "Código Pix copiado!",
+                                    description: "O código Pix de R$ 5 foi copiado para a área de transferência."
+                                });
+                            }}>Copiar Código Pix</Button>
+                        </div>
+                    )}
+
+                    {selectedAmount === 10 && (
+                        <div className="p-4 border rounded-md">
+                            <p className="font-semibold">Chave Pix (Copiar e Colar):</p>
+                            <Input
+                                type="text"
+                                value="00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786"
+                                readOnly
+                                className="mb-2"
+                            />
+                            <Button variant="outline" size="sm" onClick={() => {
+                                navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786");
+                                toast({
+                                    title: "Código Pix copiado!",
+                                    description: "O código Pix de R$ 10 foi copiado para a área de transferência."
+                                });
+                            }}>Copiar Código Pix</Button>
+                        </div>
+                    )}
+
                     <div className="grid gap-2">
                         <Label htmlFor="receipt">Comprovante de Pagamento</Label>
                         <Input type="file" id="receipt" accept="image/png, image/jpeg, application/pdf" onChange={handleFileChange} />
