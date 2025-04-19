@@ -186,7 +186,7 @@ export default function Dashboard() {
 
                 await updateDoc(userDocRef, {
                     saldo: newSaldo,
-                });
+                 });
 
                 toast({
                     title: "Saldo atualizado com sucesso!",
@@ -600,20 +600,46 @@ export default function Dashboard() {
                     <DialogHeader>
                         <DialogTitle>Sacar via Pix</DialogTitle>
                         <DialogDescription>
-                            Selecione o valor que deseja sacar.
+                            Digite o valor que deseja sacar.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid grid-cols-3 gap-4 py-4">
-                        <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectWithdrawAmount(1)}>R$ 1</Button>
-                        </div>
-                        <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectWithdrawAmount(5)}>R$ 5</Button>
-                        </div>
-                        <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectWithdrawAmount(10)}>R$ 10</Button>
-                        </div>
+                    <div className="grid gap-2 py-4">
+                        <Label htmlFor="withdrawAmount">Valor do Saque:</Label>
+                        <Input
+                            id="withdrawAmount"
+                            type="number"
+                            placeholder="Valor a sacar"
+                            value={withdrawAmount || ""}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                const parsedValue = value === "" ? null : parseFloat(value);
+                                setWithdrawAmount(parsedValue);
+                            }}
+                        />
                     </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={() => {
+                            if (withdrawAmount === null) {
+                                toast({
+                                    variant: "destructive",
+                                    title: "Erro",
+                                    description: "Por favor, insira um valor válido.",
+                                });
+                                return;
+                            }
+                            if (withdrawAmount > (saldo || 0)) {
+                                toast({
+                                    variant: "destructive",
+                                    title: "Saldo insuficiente",
+                                    description: "Você não tem saldo suficiente para sacar este valor.",
+                                });
+                                return;
+                            }
+                            handleSelectWithdrawAmount(withdrawAmount);
+                        }}>
+                            Confirmar
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -655,7 +681,68 @@ export default function Dashboard() {
                         />
                     </div>
                     <DialogFooter>
-                        <Button type="button" onClick={() => handleSendWithdrawRequest()}>
+                        <Button type="button" onClick={async () => {
+                            if (!pixKey) {
+                                toast({
+                                    variant: "destructive",
+                                    title: "Erro",
+                                    description: "Por favor, insira sua Chave Pix.",
+                                });
+                                return;
+                            }
+
+                            if (auth.currentUser && withdrawAmount !== null && saldo !== null) {
+                                if (withdrawAmount > saldo) {
+                                    toast({
+                                        variant: "destructive",
+                                        title: "Saldo insuficiente",
+                                        description: "Você não tem saldo suficiente para sacar este valor.",
+                                    });
+                                    setIsPixKeyModalOpen(false);
+                                    return;
+                                }
+
+                                try {
+                                    // Send notification to Discord webhook
+                                    const webhookBody = {
+                                        content: `Novo pedido de saque:\nUsuário: ${auth.currentUser.email}\nData: ${new Date().toLocaleString()}\nValor: R$${withdrawAmount}\nChave Pix: ${pixKey}`
+                                    };
+
+                                    const webhookUrl = "https://discord.com/api/webhooks/1363289919480528987/MAW66tTBzQXeuFYki7X3zN7VF74KuxdJgnIiujhFerQuFXS5aHElG_aa6cwupr2uhEfZ";
+
+                                    const response = await fetch(webhookUrl, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify(webhookBody),
+                                    });
+
+                                    if (response.ok) {
+                                        toast({
+                                            title: "Pedido de saque enviado!",
+                                            description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
+                                        });
+                                    } else {
+                                        toast({
+                                            variant: "destructive",
+                                            title: "Erro ao enviar pedido de saque",
+                                            description: "Ocorreu um erro ao enviar o pedido. Por favor, tente novamente.",
+                                        });
+                                    }
+
+                                    setIsPixKeyModalOpen(false);
+                                    setPixKey("");
+
+                                } catch (error: any) {
+                                    toast({
+                                        variant: "destructive",
+                                        title: "Erro ao enviar pedido de saque",
+                                        description: error.message,
+                                    });
+                                }
+                            }
+                        }}>
                             Sacar
                         </Button>
                     </DialogFooter>
