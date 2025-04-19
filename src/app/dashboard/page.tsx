@@ -224,88 +224,26 @@ export default function Dashboard() {
         }
     };
 
-    const handleSelectAmount = (amount: number) => {
-        setSelectedAmount(amount);
-        setIsConfirmationModalOpen(true);
-        let pixCodeValue = "";
-        if (amount === 1) {
-            pixCodeValue = "00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C";
-        } else if (amount === 5) {
-            pixCodeValue = "00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46";
-        } else if (amount === 10) {
-            pixCodeValue = "00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786";
-        }
-        setPixCode(pixCodeValue);
-    };
-
-    const handleCopyCode = async (pixCode: string) => {
-         try {
-            await navigator.clipboard.writeText(pixCode);
-            toast({
-                title: "Código Pix copiado!",
-                description: "O código Pix foi copiado para a área de transferência."
-            });
-        } catch (err) {
-            toast({
-                variant: "destructive",
-                title: "Erro ao copiar código Pix",
-                description: "Por favor, tente novamente."
-            });
-        }
-    };
-
-        const handleConfirmDeposit = async () => {
-            setIsConfirmationModalOpen(false);
-            setIsCPFModalOpen(true);
-        };
-
-        const handleSendCPF = async () => {
-            if (!cpf) {
-                toast({
-                    variant: "destructive",
-                    title: "Erro",
-                    description: "Por favor, insira seu CPF.",
-                });
-                return;
-            }
-
-            try {
-                if (auth.currentUser) {
-                    const userDocRef = doc(db, "users", auth.currentUser.uid);
-                    await updateDoc(userDocRef, {
-                        cpf: cpf,
-                    });
-
-                    toast({
-                        title: "CPF enviado com sucesso!",
-                        description: "Aguarde a confirmação do depósito.",
-                    });
-                    setIsCPFModalOpen(false);
-                }
-            } catch (error: any) {
-                toast({
-                    variant: "destructive",
-                    title: "Erro ao enviar CPF",
-                    description: error.message,
-                });
-            }
-        };
-
-        const handleSelectWithdrawAmount = () => {
-            setIsWithdrawConfirmationModalOpen(true);
-        };
-
         const handleConfirmWithdraw = () => {
             setIsWithdrawConfirmationModalOpen(false);
             setIsPixKeyModalOpen(true);
         };
 
         const handleSendWithdrawRequest = async () => {
-            if (!pixKey) {
+             if (!pixKey) {
                 toast({
                     variant: "destructive",
                     title: "Erro",
                     description: "Por favor, insira sua Chave Pix.",
+                });
+                return;
+            }
+
+             if (withdrawAmount === null || withdrawAmount <= 0) {
+                toast({
+                    variant: "destructive",
+                    title: "Erro",
+                    description: "Por favor, insira um valor válido e positivo para saque.",
                 });
                 return;
             }
@@ -320,6 +258,7 @@ export default function Dashboard() {
                     setIsPixKeyModalOpen(false);
                     return;
                 }
+                
 
                 try {
                     // Send notification to Discord webhook
@@ -347,10 +286,10 @@ export default function Dashboard() {
                             saldo: newSaldo,
                         });
 
-                        toast({
-                            title: "Pedido de saque enviado!",
-                            description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
-                        });
+                          toast({
+                                title: "Pedido de saque enviado!",
+                                description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
+                           });
                     } else {
                         toast({
                             variant: "destructive",
@@ -644,6 +583,16 @@ export default function Dashboard() {
                                 });
                                 return;
                             }
+
+                             if (withdrawAmount <= 0) {
+                                toast({
+                                    variant: "destructive",
+                                    title: "Erro",
+                                    description: "Por favor, insira um valor válido e positivo para saque.",
+                                });
+                                return;
+                            }
+
                             handleSelectWithdrawAmount();
                         }}>
                             Confirmar
@@ -769,4 +718,5 @@ export default function Dashboard() {
         </div>
     );
 }
+
 
