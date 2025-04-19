@@ -121,6 +121,11 @@ export default function TransferenciasAntigas() {
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
+      <div className="flex justify-center items-center py-4">
+        <h1 className="text-4xl font-semibold text-blue-500 drop-shadow-lg" style={{ fontFamily: 'Dancing Script, cursive' }}>
+          DH Bank
+        </h1>
+      </div>
       {/* Navigation Buttons */}
       <div className="flex justify-around w-full max-w-md mb-8 z-20">
         <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
@@ -164,3 +169,4 @@ export default function TransferenciasAntigas() {
     </div>
   );
 }
+
