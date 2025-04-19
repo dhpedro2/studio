@@ -25,6 +25,7 @@ import {
     DialogClose,
 } from "@/components/ui/dialog";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -35,6 +36,9 @@ const firebaseConfig = {
     appId: "1:370634468884:web:4a00ea2f9757051cda4101",
     measurementId: "G-JPFXDJBSGM",
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
 export default function Dashboard() {
     const [saldo, setSaldo] = useState<number | null>(null);
@@ -59,11 +63,8 @@ export default function Dashboard() {
     const [isPixKeyModalOpen, setIsPixKeyModalOpen] = useState(false);
 
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-
-    const auth = getAuth();
-    const db = getFirestore();
+    const auth = getAuth(app);
+    const db = getFirestore(app);
     const storage = getStorage(app);
 
     const fetchUserBalance = useCallback(async (userId: string) => {
@@ -337,6 +338,14 @@ export default function Dashboard() {
                     });
 
                     if (response.ok) {
+                         // Subtract the withdrawn amount from the user's balance
+                        const userDocRef = doc(db, "users", auth.currentUser.uid);
+                        const currentSaldo = saldo;  // Use the state variable directly
+                        const newSaldo = currentSaldo - withdrawAmount;
+
+                        await updateDoc(userDocRef, {
+                            saldo: newSaldo,
+                        });
                         toast({
                             title: "Pedido de saque enviado!",
                             description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
@@ -718,6 +727,15 @@ export default function Dashboard() {
                                     });
 
                                     if (response.ok) {
+                                        // Subtract the withdrawn amount from the user's balance
+                                        const userDocRef = doc(db, "users", auth.currentUser.uid);
+                                        const currentSaldo = saldo;
+                                        const newSaldo = currentSaldo - withdrawAmount;
+
+                                        await updateDoc(userDocRef, {
+                                            saldo: newSaldo,
+                                        });
+
                                         toast({
                                             title: "Pedido de saque enviado!",
                                             description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
