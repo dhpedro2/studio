@@ -215,64 +215,6 @@ export default function Dashboard() {
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            setReceiptFile(e.target.files[0]);
-        }
-    };
-
-    const handleSendComprovante = async () => {
-        if (!selectedAmount) {
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Por favor, selecione um valor para depositar.",
-            });
-            return;
-        }
-
-        if (!receiptFile) {
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Por favor, carregue o comprovante de pagamento.",
-            });
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const storageRef = ref(storage, `receipts/${auth.currentUser?.uid}/${receiptFile.name}`);
-            await uploadBytes(storageRef, receiptFile);
-            const fileURL = await getDownloadURL(storageRef);
-
-            await addDoc(collection(db, "pendingDeposits"), {
-                userId: auth.currentUser?.uid,
-                amount: selectedAmount,
-                date: new Date().toISOString(),
-                fileURL: fileURL,
-                status: "pending",
-            });
-
-            toast({
-                title: "Comprovante enviado com sucesso!",
-                description: "Seu comprovante foi enviado e está aguardando aprovação.",
-            });
-            setIsDepositModalOpen(false);
-            setIsConfirmationModalOpen(false);
-            setLoading(false);
-
-        } catch (error: any) {
-            console.error("Erro ao enviar comprovante:", error);
-            toast({
-                variant: "destructive",
-                title: "Erro ao enviar comprovante",
-                description: error.message,
-            });
-            setLoading(false);
-        }
-    };
-
     const handleSelectAmount = (amount: number) => {
         setSelectedAmount(amount);
         setIsConfirmationModalOpen(true);
@@ -285,6 +227,22 @@ export default function Dashboard() {
             pixCodeValue = "00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786";
         }
         setPixCode(pixCodeValue);
+    };
+
+    const handleCopyCode = async (pixCode: string) => {
+        try {
+            await navigator.clipboard.writeText(pixCode);
+            toast({
+                title: "Código Pix copiado!",
+                description: "O código Pix foi copiado para a área de transferência."
+            });
+        } catch (err) {
+            toast({
+                variant: "destructive",
+                title: "Erro ao copiar código Pix",
+                description: "Por favor, tente novamente."
+            });
+        }
     };
 
     return (
@@ -411,7 +369,7 @@ export default function Dashboard() {
                     <DialogHeader>
                         <DialogTitle>Confirmar Depósito</DialogTitle>
                         <DialogDescription>
-                            Por favor, envie o comprovante de pagamento para o depósito de R$ {selectedAmount}.
+                            Por favor, copie o código de pagamento para o depósito de R$ {selectedAmount}.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedAmount === 1 && (
@@ -471,13 +429,10 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="receipt">Comprovante de Pagamento</Label>
-                        <Input type="file" id="receipt" accept="image/png, image/jpeg, application/pdf" onChange={handleFileChange} />
-                    </div>
+                    
                     <DialogFooter>
-                        <Button type="button" onClick={handleSendComprovante}>
-                            Enviar Comprovante
+                        <Button type="button" onClick={() => setIsConfirmationModalOpen(false)}>
+                            Pronto
                         </Button>
                     </DialogFooter>
                 </DialogContent>
