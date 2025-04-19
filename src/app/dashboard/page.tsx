@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
-import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, onSnapshot, addDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -11,9 +11,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User } from 'lucide-react';
+import { Home, Wallet, Clock, User, Upload } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import '@/app/globals.css';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -34,12 +45,16 @@ export default function Dashboard() {
   const [addRemoveAmount, setAddRemoveAmount] = useState<string>("");
   const router = useRouter();
   const { toast } = useToast();
+    const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
+    const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+    const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
 
   const auth = getAuth();
   const db = getFirestore();
+  const storage = getStorage(app);
 
   const fetchUserBalance = useCallback(async (userId: string) => {
     const userDoc = doc(db, "users", userId);
@@ -199,6 +214,70 @@ export default function Dashboard() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setReceiptFile(e.target.files[0]);
+        }
+    };
+
+    const handleSendComprovante = async () => {
+        if (!selectedAmount) {
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Por favor, selecione um valor para depositar.",
+            });
+            return;
+        }
+
+        if (!receiptFile) {
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Por favor, carregue o comprovante de pagamento.",
+            });
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const storageRef = ref(storage, `receipts/${auth.currentUser?.uid}/${receiptFile.name}`);
+            await uploadBytes(storageRef, receiptFile);
+            const fileURL = await getDownloadURL(storageRef);
+
+            await addDoc(collection(db, "pendingDeposits"), {
+                userId: auth.currentUser?.uid,
+                amount: selectedAmount,
+                date: new Date().toISOString(),
+                fileURL: fileURL,
+                status: "pending",
+            });
+
+            toast({
+                title: "Comprovante enviado com sucesso!",
+                description: "Seu comprovante foi enviado e está aguardando aprovação.",
+            });
+            setIsDepositModalOpen(false);
+            setLoading(false);
+
+        } catch (error: any) {
+            console.error("Erro ao enviar comprovante:", error);
+            toast({
+                variant: "destructive",
+                title: "Erro ao enviar comprovante",
+                description: error.message,
+            });
+            setLoading(false);
+        }
+    };
+
+    const qrCodeStyle = {
+        width: '150px',
+        height: '150px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    };
+
   return (
     <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
       backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
@@ -252,6 +331,10 @@ export default function Dashboard() {
               Perfil
             </Button>
           </div>
+                    <Button onClick={() => setIsDepositModalOpen(true)} variant="secondary">
+                        <Upload className="mr-2" />
+                        Depositar via Pix
+                    </Button>
         </CardContent>
       </Card>
 
@@ -291,6 +374,43 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+           <Dialog open={isDepositModalOpen} onOpenChange={setIsDepositModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Depositar via Pix</DialogTitle>
+                        <DialogDescription>
+                            Selecione o valor que deseja depositar e envie o comprovante de pagamento.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-3 gap-4 py-4">
+                        <div>
+                            <Button variant="outline" className="w-full" onClick={() => setSelectedAmount(1)}>R$ 1</Button>
+                            <img src="https://drive.google.com/file/d/1-0g5REU1Gu0crwChSGmeiZsW5zDaOtSY/view?usp=drive_link" alt="QR Code R$1" style={qrCodeStyle} />
+                            <p className="text-sm mt-2">00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C</p>
+                        </div>
+                        <div>
+                            <Button variant="outline" className="w-full" onClick={() => setSelectedAmount(5)}>R$ 5</Button>
+                            <img src="https://drive.google.com/file/d/1S4VHNPVSaC1kVliPTeQqndCKYwQHq3Ns/view?usp=drive_link" alt="QR Code R$5" style={qrCodeStyle} />
+                            <p className="text-sm mt-2">00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46</p>
+                        </div>
+                        <div>
+                            <Button variant="outline" className="w-full" onClick={() => setSelectedAmount(10)}>R$ 10</Button>
+                            <img src="https://drive.google.com/file/d/1NoY87rF3qwJylr3ff13Ph--H8z9_q-De/view?usp=drive_link" alt="QR Code R$10" style={qrCodeStyle} />
+                            <p className="text-sm mt-2">00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786</p>
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="receipt">Comprovante de Pagamento</Label>
+                        <Input type="file" id="receipt" accept="image/png, image/jpeg, application/pdf" onChange={handleFileChange} />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={handleSendComprovante}>
+                            Enviar Comprovante
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
     </div>
   );
 }
+
