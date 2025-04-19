@@ -50,6 +50,8 @@ export default function Dashboard() {
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
     const [pixCode, setPixCode] = useState<string>("");
+        const [isCPFModalOpen, setIsCPFModalOpen] = useState(false);
+        const [cpf, setCPF] = useState<string>("");
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
@@ -245,6 +247,43 @@ export default function Dashboard() {
         }
     };
 
+        const handleConfirmDeposit = async () => {
+            setIsConfirmationModalOpen(false);
+            setIsCPFModalOpen(true);
+        };
+
+        const handleSendCPF = async () => {
+            if (!cpf) {
+                toast({
+                    variant: "destructive",
+                    title: "Erro",
+                    description: "Por favor, insira seu CPF.",
+                });
+                return;
+            }
+
+            try {
+                if (auth.currentUser) {
+                    const userDocRef = doc(db, "users", auth.currentUser.uid);
+                    await updateDoc(userDocRef, {
+                        cpf: cpf,
+                    });
+
+                    toast({
+                        title: "CPF enviado com sucesso!",
+                        description: "Aguarde a confirmação do depósito.",
+                    });
+                    setIsCPFModalOpen(false);
+                }
+            } catch (error: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Erro ao enviar CPF",
+                    description: error.message,
+                });
+            }
+        };
+
     return (
         <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
             backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
@@ -388,6 +427,9 @@ export default function Dashboard() {
                                     description: "O código Pix de R$ 1 foi copiado para a área de transferência."
                                 });
                             }}>Copiar Código Pix</Button>
+                            <Button type="button" onClick={() => handleConfirmDeposit()}>
+                                Pronto
+                            </Button>
                         </div>
                     )}
 
@@ -407,6 +449,9 @@ export default function Dashboard() {
                                     description: "O código Pix de R$ 5 foi copiado para a área de transferência."
                                 });
                             }}>Copiar Código Pix</Button>
+                            <Button type="button" onClick={() => handleConfirmDeposit()}>
+                                Pronto
+                            </Button>
                         </div>
                     )}
 
@@ -426,13 +471,41 @@ export default function Dashboard() {
                                     description: "O código Pix de R$ 10 foi copiado para a área de transferência."
                                 });
                             }}>Copiar Código Pix</Button>
+                            <Button type="button" onClick={() => handleConfirmDeposit()}>
+                                Pronto
+                            </Button>
                         </div>
                     )}
 
                     
                     <DialogFooter>
                         <Button type="button" onClick={() => setIsConfirmationModalOpen(false)}>
-                            Pronto
+                            Cancelar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={isCPFModalOpen} onOpenChange={setIsCPFModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirmar Depósito</DialogTitle>
+                        <DialogDescription>
+                            Para confirmar o depósito, por favor, insira seu CPF.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-2 py-4">
+                        <Label htmlFor="cpf">CPF:</Label>
+                        <Input
+                            id="cpf"
+                            type="text"
+                            placeholder="000.000.000-00"
+                            value={cpf}
+                            onChange={(e) => setCPF(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" onClick={() => handleSendCPF()}>
+                            Enviar
                         </Button>
                     </DialogFooter>
                 </DialogContent>
