@@ -13,6 +13,7 @@ import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User, Settings } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
+import '@/app/globals.css';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -214,7 +215,7 @@ export default function Dashboard() {
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
        <div className="flex justify-center items-center py-4">
-        <h1 className="text-4xl font-semibold text-blue-500 drop-shadow-lg" style={{ fontFamily: 'Dancing Script, cursive' }}>
+        <h1 className="text-4xl font-semibold text-blue-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
           DH Bank
         </h1>
       </div>
@@ -293,5 +294,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-

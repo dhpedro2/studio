@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import '@/app/globals.css';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -64,40 +65,40 @@ export default function TransferenciasAntigas() {
 
       const querySnapshot = await getDocs(sentQuery);
 
-      const transferMap: { [destinatario: string]: RecentTransfer } = {};
+    const transferMap: { [destinatario: string]: RecentTransfer } = {};
 
       for (const doc of querySnapshot.docs) {
         const data = doc.data();
 
-        try {
+         try {
           const recipientDoc = await getDoc(doc(db, "users", data.destinatario));
-        if (recipientDoc.exists()) {
-          const recipientData = recipientDoc.data();
-          const destinatario = data.destinatario;
+            if (recipientDoc.exists()) {
+              const recipientData = recipientDoc.data();
+              const destinatario = data.destinatario;
 
-          if (!transferMap[destinatario]) {
-            transferMap[destinatario] = {
-              destinatario: data.destinatario,
-              destinatarioNome: recipientData?.name || "Nome Desconhecido",
-              destinatarioEmail: recipientData?.email || "Email Desconhecido",
-            };
-          }
-        }
-        } catch (error) {
-          console.error("Erro ao buscar nome do usuário:", error);
-           toast({
-              variant: "destructive",
-              title: "Erro",
-              description: "Erro ao buscar informações do destinatário.",
-            });
-        }
+            if (!transferMap[destinatario]) {
+              transferMap[destinatario] = {
+                destinatario: data.destinatario,
+                destinatarioNome: recipientData?.name || "Nome Desconhecido",
+                destinatarioEmail: recipientData?.email || "Email Desconhecido",
+              };
+            }
+           }
+           } catch (error) {
+            console.error("Erro ao buscar nome do usuário:", error);
+              toast({
+                 variant: "destructive",
+                 title: "Erro",
+                 description: "Erro ao buscar informações do destinatário.",
+               });
+           }
       }
 
-      // Convert the map to an array
-      const transferList = Object.values(transferMap);
-      setRecentTransfers(transferList);
-      setLoading(false);
-    };
+       // Convert the map to an array
+       const transferList = Object.values(transferMap);
+       setRecentTransfers(transferList);
+       setLoading(false);
+     };
 
     loadTransactions();
   }, [auth.currentUser, db, toast]);
@@ -122,7 +123,7 @@ export default function TransferenciasAntigas() {
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
       <div className="flex justify-center items-center py-4">
-        <h1 className="text-4xl font-semibold text-blue-500 drop-shadow-lg" style={{ fontFamily: 'Dancing Script, cursive' }}>
+        <h1 className="text-4xl font-semibold text-blue-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
           DH Bank
         </h1>
       </div>
@@ -169,4 +170,3 @@ export default function TransferenciasAntigas() {
     </div>
   );
 }
-
