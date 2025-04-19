@@ -227,14 +227,12 @@ export default function Dashboard() {
               <Clock className="mr-2" />
               Histórico de Transações
             </Button>
+            <Button onClick={() => router.push("/profile")} variant="outline">
+              <User className="mr-2" />
+              Perfil
+            </Button>
           </div>
         </CardContent>
-         <CardContent className="flex items-center justify-end">
-           <Button onClick={() => router.push("/profile")} variant="ghost">
-             <User className="mr-2" />
-             Perfil
-           </Button>
-         </CardContent>
       </Card>
 
       {isAdmin && (
@@ -276,5 +274,6 @@ export default function Dashboard() {
     </div>
   );
 }
+
 
 
