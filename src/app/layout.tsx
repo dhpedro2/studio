@@ -25,13 +25,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-      <div className="flex justify-center items-center py-4 bg-secondary">
-          <h1 className="text-2xl font-bold">DH Bank</h1>
-        </div>
         {children}
       </body>
     </html>
   );
 }
-
-

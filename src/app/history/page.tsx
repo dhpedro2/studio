@@ -23,6 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -59,9 +60,12 @@ export default function History() {
   const db = getFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let unsubscribe;
     const loadTransactions = async () => {
+      setLoading(true);
       if (!auth.currentUser) {
         return;
       }
@@ -89,12 +93,17 @@ export default function History() {
       const transactionList: Transaction[] = [];
 
       const fetchUserName = async (userId: string) => {
-        const userDocRef = doc(db, "users", userId);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          return userDoc.data().name;
+        try {
+          const userDocRef = doc(db, "users", userId);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            return userDoc.data().name;
+          }
+          return "Nome Desconhecido";
+        } catch (error) {
+          console.error("Erro ao buscar nome do usuário:", error);
+          return "Nome Desconhecido";
         }
-        return "Nome Desconhecido";
       };
 
       for (const doc of sentSnapshot.docs) {
@@ -127,9 +136,16 @@ export default function History() {
 
       transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
       setTransactions(transactionList);
+      setLoading(false);
     };
 
     loadTransactions();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [auth.currentUser, db]);
 
   useEffect(() => {
@@ -165,17 +181,30 @@ export default function History() {
   }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, auth.currentUser?.uid]);
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
+    <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
+      backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+    }}>
+      <video
+        src="https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm"
+        autoPlay
+        loop
+        muted
+        className="absolute top-0 left-0 w-full h-full object-cover z-0"
+      />
+      <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
       {/* Navigation Buttons */}
-      <div className="flex justify-around w-full max-w-md mb-8">
+      <div className="flex justify-around w-full max-w-md mb-8 z-20">
         <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
         <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
         <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
         <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
       </div>
-      <Separator className="w-full max-w-md mb-8" />
+      <Separator className="w-full max-w-md mb-8 z-20" />
 
-      <Card className="w-96">
+      <Card className="w-96 z-20">
         <CardHeader className="space-y-1">
           <CardTitle>Histórico de Transações</CardTitle>
         </CardHeader>
@@ -234,7 +263,14 @@ export default function History() {
             </div>
           </div>
 
-          {filteredTransactions.length > 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center">
+              <Skeleton className="w-full h-10 mb-2" />
+              <Skeleton className="w-full h-10 mb-2" />
+              <Skeleton className="w-full h-10 mb-2" />
+              <Skeleton className="w-full h-10 mb-2" />
+            </div>
+          ) : filteredTransactions.length > 0 ? (
             <ul className="space-y-2">
               {filteredTransactions.map((transaction) => (
                 <li
@@ -263,4 +299,3 @@ export default function History() {
     </div>
   );
 }
-

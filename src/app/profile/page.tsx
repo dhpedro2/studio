@@ -31,6 +31,7 @@ import {
   } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -66,9 +67,13 @@ export default function Profile() {
   const db = getFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let unsubscribe;
+
     const loadTransactions = async () => {
+      setLoading(true);
       if (!auth.currentUser) {
         return;
       }
@@ -86,7 +91,7 @@ export default function Profile() {
       const transactionsCollection = collection(db, "transactions");
   
       // Query transactions where the user is either the sender OR the recipient
-      const q = query(
+      const sentQuery = query(
         transactionsCollection,
         where("remetente", "==", userId)
       );
@@ -97,7 +102,7 @@ export default function Profile() {
       );
   
       const [sentSnapshot, receivedSnapshot] = await Promise.all([
-        getDocs(q),
+        getDocs(sentQuery),
         getDocs(q2)
       ]);
   
@@ -105,11 +110,16 @@ export default function Profile() {
   
       // Helper function to fetch user name
       const fetchUserName = async (userId: string) => {
-        const userDoc = await getDoc(doc(db, "users", userId));
-        if (userDoc.exists()) {
-          return userDoc.data().name;
+         try {
+          const userDoc = await getDoc(doc(db, "users", userId));
+          if (userDoc.exists()) {
+            return userDoc.data().name;
+          }
+          return "Nome Desconhecido";
+        } catch (error) {
+          console.error("Erro ao buscar nome do usuário:", error);
+          return "Nome Desconhecido";
         }
-        return "Nome Desconhecido";
       };
   
       // Process sent transactions
@@ -158,9 +168,16 @@ export default function Profile() {
         frequency[date] = (frequency[date] || 0) + 1;
       });
       setTransactionFrequency(frequency);
+       setLoading(false);
     };
   
     loadTransactions();
+
+     return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
   }, [auth.currentUser, db]);
 
   const handleLogout = async () => {
@@ -193,30 +210,47 @@ export default function Profile() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
+    <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
+      backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+    }}>
+      <video
+        src="https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm"
+        autoPlay
+        loop
+        muted
+        className="absolute top-0 left-0 w-full h-full object-cover z-0"
+      />
+      <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
       {/* Navigation Buttons */}
-      <div className="flex justify-around w-full max-w-md mb-8">
+      <div className="flex justify-around w-full max-w-md mb-8 z-20">
         <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
         <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
         <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
       </div>
-      <Separator className="w-full max-w-md mb-8" />
+      <Separator className="w-full max-w-md mb-8 z-20" />
 
-      <Card className="w-96">
+      <Card className="w-96 z-20">
         <CardHeader className="space-y-1">
           <CardTitle>Estatísticas do Perfil</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="flex items-center space-x-4">
              <Avatar>
+                 {loading ? (
+                     <Skeleton className="h-10 w-10 rounded-full"/>
+                 ) : (
                  <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
+                 )}
               </Avatar>
             <div>
               <p className="text-lg font-semibold">
-                Nome: {name || "Carregando..."}
+                Nome: {loading ? <Skeleton width={120} /> : (name || "Carregando...")}
               </p>
               <p className="text-lg font-semibold">
-                Email: {email || "Carregando..."}
+                Email: {loading ? <Skeleton width={160} /> : (email || "Carregando...")}
               </p>
             </div>
            
@@ -228,12 +262,14 @@ export default function Profile() {
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold mt-4">Valor Total Transferido: R$ {totalAmountTransferred.toFixed(2)}</h2>
+            <h2 className="text-xl font-semibold mt-4">Valor Total Transferido: R$ {loading ? <Skeleton width={100}/> : totalAmountTransferred.toFixed(2)}</h2>
           </div>
 
           <div>
             <h2 className="text-xl font-semibold mt-4">Frequência de Transações</h2>
-            {chartData.length > 0 ? (
+            {loading ? (
+                <Skeleton className="w-full h-32"/>
+            ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
