@@ -239,7 +239,7 @@ export default function Dashboard() {
     };
 
     const handleCopyCode = async (pixCode: string) => {
-        try {
+         try {
             await navigator.clipboard.writeText(pixCode);
             toast({
                 title: "Código Pix copiado!",
@@ -346,6 +346,7 @@ export default function Dashboard() {
                         await updateDoc(userDocRef, {
                             saldo: newSaldo,
                         });
+
                         toast({
                             title: "Pedido de saque enviado!",
                             description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
@@ -768,3 +769,4 @@ export default function Dashboard() {
         </div>
     );
 }
+
