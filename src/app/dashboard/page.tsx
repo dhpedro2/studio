@@ -330,11 +330,12 @@ export default function Dashboard() {
               <User className="mr-2" />
               Perfil
             </Button>
-          </div>
-                    <Button onClick={() => setIsDepositModalOpen(true)} variant="secondary">
+                         <Button onClick={() => setIsDepositModalOpen(true)} variant="outline">
                         <Upload className="mr-2" />
                         Depositar via Pix
                     </Button>
+          </div>
+                    
         </CardContent>
       </Card>
 
