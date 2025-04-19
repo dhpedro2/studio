@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User } from 'lucide-react';
+import { Home, Wallet, Clock, User, Settings } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 
 const firebaseConfig = {
@@ -213,12 +213,17 @@ export default function Dashboard() {
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
+       <div className="flex justify-center items-center py-4">
+        <h1 className="text-4xl font-semibold text-white drop-shadow-lg" style={{ fontFamily: 'Dancing Script, cursive' }}>
+          DH Bank
+        </h1>
+      </div>
       {/* Navigation Buttons */}
       <div className="flex justify-around w-full max-w-md mb-8 z-20">
         <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
         <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
         <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
+        <Button onClick={() => router.push("/profile")} variant="ghost"><Settings className="mr-2" />Perfil</Button>
       </div>
       <Separator className="w-full max-w-md mb-8 z-20" />
 
@@ -288,3 +293,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
