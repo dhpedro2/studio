@@ -290,8 +290,7 @@ export default function Dashboard() {
             }
         };
 
-        const handleSelectWithdrawAmount = (amount: number) => {
-            setWithdrawAmount(amount);
+        const handleSelectWithdrawAmount = () => {
             setIsWithdrawConfirmationModalOpen(true);
         };
 
@@ -635,7 +634,7 @@ export default function Dashboard() {
                                 });
                                 return;
                             }
-                            handleSelectWithdrawAmount(withdrawAmount);
+                            handleSelectWithdrawAmount();
                         }}>
                             Confirmar
                         </Button>
@@ -751,4 +750,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
