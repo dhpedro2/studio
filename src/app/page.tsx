@@ -133,7 +133,7 @@ export default function Home() {
          </div>
           <CardTitle>{isRegistering ? "Criar Conta" : "Entrar"}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 main-content">
           <form onSubmit={handleSubmit}>
             {isRegistering && (
               <div className="grid gap-2">
@@ -196,4 +196,3 @@ export default function Home() {
     </div>
   );
 }
-

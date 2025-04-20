@@ -308,19 +308,19 @@ export default function Transfer() {
         </h1>
       </div>
       {/* Navigation Buttons */}
-      <div className="flex justify-around w-full max-w-md mb-8 z-20">
-        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />Início</Button>
-        <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />Transferências</Button>
-        <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />Histórico</Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />Perfil</Button>
-      </div>
+        <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
+            <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />{/*Início*/}</Button>
+            <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />{/*Transferências*/}</Button>
+            <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />{/*Histórico*/}</Button>
+            <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />{/*Perfil*/}</Button>
+        </div>
       <Separator className="w-full max-w-md mb-8 z-20" />
 
       <Card className="w-96 z-20 max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle>Realizar Transferência</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 main-content">
            <div>
             <p className="text-lg font-semibold">
               Saldo Atual: R$ {loadingSaldo ? <Skeleton width={100}/> : (saldo !== null ? saldo.toFixed(2) : "Carregando...")}
@@ -415,4 +415,3 @@ export default function Transfer() {
     </div>
   );
 }
-

@@ -376,11 +376,11 @@ export default function Dashboard() {
                 </h1>
             </div>
             {/* Navigation Buttons */}
-            <div className="flex justify-around w-full max-w-md mb-8 z-20">
-                <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />Início</Button>
-                <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />Transferências</Button>
-                <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />Histórico</Button>
-                <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />Perfil</Button>
+            <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
+                <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />{/*Início*/}</Button>
+                <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />{/*Transferências*/}</Button>
+                <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />{/*Histórico*/}</Button>
+                <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />{/*Perfil*/}</Button>
             </div>
             <Separator className="w-full max-w-md mb-8 z-20" />
 
@@ -388,7 +388,7 @@ export default function Dashboard() {
                 <CardHeader className="space-y-2">
                     <CardTitle className="text-2xl">Painel do Usuário</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-4">
+                <CardContent className="grid gap-4 main-content">
                     <div>
                         <p className="text-3xl font-semibold">
                             Saldo Atual: R$ {loading ? <Skeleton width={150} /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
@@ -691,4 +691,3 @@ export default function Dashboard() {
         </div>
     );
 }
-

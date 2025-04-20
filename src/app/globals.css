@@ -158,5 +158,29 @@ body {
         width: 100%; /* Each button takes full width */
         margin-bottom: 0.5rem; /* Space between buttons */
     }
+
+    .mobile-nav-buttons {
+        display: flex;
+        justify-content: space-around;
+        padding: 0.5rem;
+    }
+
+    .mobile-nav-buttons button {
+        padding: 0.5rem;
+        font-size: 0; /* Hide text */
+        width: auto;
+    }
+
+    .mobile-nav-buttons button svg {
+        margin: 0; /* Remove unnecessary margins */
+        display: block;
+    }
 }
 
+/* Add margins to main content on smaller screens */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
+}

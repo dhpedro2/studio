@@ -229,7 +229,7 @@ export default function Admin() {
         <CardHeader>
           <CardTitle>Depósitos Pendentes</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="main-content">
           {pendingDeposits.length === 0 ? (
             <p>Nenhum depósito pendente.</p>
           ) : (
@@ -261,4 +261,3 @@ export default function Admin() {
     </div>
   );
 }
-

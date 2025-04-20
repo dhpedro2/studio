@@ -202,7 +202,7 @@ export default function History() {
         </h1>
       </div>
       {/* Navigation Buttons */}
-      <div className="flex justify-around w-full max-w-md mb-8 z-20">
+      <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
         <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />Início</Button>
         <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />Transferências</Button>
         <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />Histórico</Button>
@@ -214,7 +214,7 @@ export default function History() {
         <CardHeader className="space-y-1">
           <CardTitle>Histórico de Transações</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 main-content">
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label htmlFor="startDate">Data Inicial:</Label>
@@ -309,4 +309,3 @@ export default function History() {
     </div>
   );
 }
-
