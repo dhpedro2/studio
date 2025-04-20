@@ -128,7 +128,7 @@ export default function Home() {
         <CardHeader className="space-y-1">
          <div className="flex justify-center items-center py-4">
             <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
-             DH Bank
+             Zaca Bank
             </h1>
          </div>
           <CardTitle>{isRegistering ? "Criar Conta" : "Entrar"}</CardTitle>
@@ -196,3 +196,4 @@ export default function Home() {
     </div>
   );
 }
+

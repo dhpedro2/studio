@@ -227,7 +227,7 @@ export default function Profile() {
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
         <div className="flex justify-center items-center py-4">
         <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
-          DH Bank
+          Zaca Bank
         </h1>
       </div>
       {/* Navigation Buttons */}
@@ -296,3 +296,4 @@ export default function Profile() {
     </div>
   );
 }
+
