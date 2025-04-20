@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -182,5 +183,19 @@ body {
     .main-content {
         margin-left: 0.5rem;
         margin-right: 0.5rem;
+    }
+}
+
+/* Hide text on smaller screens, show on larger */
+@media (max-width: 639px) {
+    .mobile-nav-buttons button span {
+        display: none; /* Hide text */
+    }
+}
+
+@media (min-width: 640px) {
+    .mobile-nav-buttons button span {
+        display: inline; /* Show text */
+        font-size: 0.875rem; /* Set a default font size */
     }
 }
