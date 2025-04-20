@@ -203,10 +203,10 @@ export default function History() {
       </div>
       {/* Navigation Buttons */}
       <div className="flex justify-around w-full max-w-md mb-8 z-20">
-        <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
-        <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
-        <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
+        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />Início</Button>
+        <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />Transferências</Button>
+        <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />Histórico</Button>
+        <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />Perfil</Button>
       </div>
       <Separator className="w-full max-w-md mb-8 z-20" />
 
@@ -222,6 +222,7 @@ export default function History() {
                 type="date"
                 id="startDate"
                 onChange={(e) => setStartDate(e.target.value ? parseISO(e.target.value) : null)}
+                className="md:text-sm"
               />
             </div>
             <div>
@@ -230,6 +231,7 @@ export default function History() {
                 type="date"
                 id="endDate"
                 onChange={(e) => setEndDate(e.target.value ? parseISO(e.target.value) : null)}
+                className="md:text-sm"
               />
             </div>
           </div>
@@ -256,6 +258,7 @@ export default function History() {
                 id="minValue"
                 placeholder="Mínimo"
                 onChange={(e) => setMinValue(e.target.value ? parseFloat(e.target.value) : null)}
+                className="md:text-sm"
               />
             </div>
             <div>
@@ -265,6 +268,7 @@ export default function History() {
                 id="maxValue"
                 placeholder="Máximo"
                 onChange={(e) => setMaxValue(e.target.value ? parseFloat(e.target.value) : null)}
+                className="md:text-sm"
               />
             </div>
           </div>
@@ -288,7 +292,7 @@ export default function History() {
                       ? `Enviado para: ${transaction.destinatarioNome}`
                       : `Recebido de: ${transaction.remetenteNome}`}
                   </p>
-                  <p>
+                  <p className="md:text-sm">
                     Valor: R$ {transaction.valor.toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -305,3 +309,4 @@ export default function History() {
     </div>
   );
 }
+

@@ -309,14 +309,14 @@ export default function Transfer() {
       </div>
       {/* Navigation Buttons */}
       <div className="flex justify-around w-full max-w-md mb-8 z-20">
-        <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
-        <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
-        <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
+        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />Início</Button>
+        <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />Transferências</Button>
+        <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />Histórico</Button>
+        <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />Perfil</Button>
       </div>
       <Separator className="w-full max-w-md mb-8 z-20" />
 
-      <Card className="w-96 z-20">
+      <Card className="w-96 z-20 max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle>Realizar Transferência</CardTitle>
         </CardHeader>
@@ -347,7 +347,7 @@ export default function Transfer() {
             />
           </div>
            
-          <Button onClick={handleTransfer}>Transferir</Button>
+          <Button onClick={handleTransfer} className="md:text-sm">Transferir</Button>
 
           <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogContent>
@@ -415,3 +415,4 @@ export default function Transfer() {
     </div>
   );
 }
+
