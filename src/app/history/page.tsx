@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -293,7 +294,7 @@ export default function History() {
                       : `Recebido de: ${transaction.remetenteNome}`}
                   </p>
                   <p className="md:text-sm">
-                    Valor: Z&#x24E6; {transaction.valor.toFixed(2)}
+                    Valor: Ƶ {transaction.valor.toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Data: {format(parseISO(transaction.data), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
@@ -309,3 +310,4 @@ export default function History() {
     </div>
   );
 }
+
