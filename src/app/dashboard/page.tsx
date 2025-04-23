@@ -191,7 +191,7 @@ export default function Dashboard() {
 
                 toast({
                     title: "Saldo atualizado com sucesso!",
-                    description: `Saldo de ${userDoc.data().name} atualizado para R$ ${newSaldo.toFixed(2)}.`,
+                    description: `Saldo de ${userDoc.data().name} atualizado para Z&#x24E6; ${newSaldo.toFixed(2)}.`,
                 });
                 setAddRemoveAmount("");
                 // Refresh users list
@@ -267,7 +267,7 @@ export default function Dashboard() {
                 try {
                     // Send notification to Discord webhook
                     const webhookBody = {
-                        content: `Novo pedido de saque:\nUsuário: ${auth.currentUser.email}\nData: ${new Date().toLocaleString()}\nValor: R$${withdrawAmount}\nChave Pix: ${pixKey}`
+                        content: `Novo pedido de saque:\nUsuário: ${auth.currentUser.email}\nData: ${new Date().toLocaleString()}\nValor: Z&#x24E6;${withdrawAmount}\nChave Pix: ${pixKey}`
                     };
 
                     const webhookUrl = "https://discord.com/api/webhooks/1363289919480528987/MAW66tTBzQXeuFYki7X3zN7VF74KuxdJgnIiujhFerQuFXS5aHElG_aa6cwupr2uhEfZ";
@@ -340,7 +340,7 @@ export default function Dashboard() {
             try {
                 toast({
                     title: "Depósito solicitado!",
-                    description: `Seu depósito de R$${selectedAmount} está sendo processado.`,
+                    description: `Seu depósito de Z&#x24E6;${selectedAmount} está sendo processado.`,
                 });
                 setIsCPFModalOpen(false);
                 setCPF(""); // Clear CPF after sending
@@ -391,7 +391,7 @@ export default function Dashboard() {
                 <CardContent className="grid gap-4 main-content">
                     <div>
                         <p className="text-3xl font-semibold">
-                            Saldo Atual: R$ {loading ? <Skeleton width={150} /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
+                            Saldo Atual: Z&#x24E6; {loading ? <Skeleton width={150} /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
                         </p>
                     </div>
                     <div className="flex flex-col space-y-2">
@@ -437,7 +437,7 @@ export default function Dashboard() {
                                 <option value="">Selecione</option>
                                 {users.map((user) => (
                                     <option key={user.id} value={user.id}>
-                                        {user.name} ({user.email}) - R$ {user.saldo ? user.saldo.toFixed(2) : '0.00'}
+                                        {user.name} ({user.email}) - Z&#x24E6; {user.saldo ? user.saldo.toFixed(2) : '0.00'}
                                     </option>
                                 ))}
                             </select>
@@ -466,13 +466,13 @@ export default function Dashboard() {
                     </DialogHeader>
                     <div className="grid grid-cols-3 gap-4 py-4">
                         <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(1)}>R$ 1</Button>
+                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(1)}>Z&#x24E6; 1</Button>
                         </div>
                         <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(5)}>R$ 5</Button>
+                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(5)}>Z&#x24E6; 5</Button>
                         </div>
                         <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(10)}>R$ 10</Button>
+                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(10)}>Z&#x24E6; 10</Button>
                         </div>
                     </div>
                 </DialogContent>
@@ -483,7 +483,7 @@ export default function Dashboard() {
                     <DialogHeader>
                         <DialogTitle>Confirmar Depósito</DialogTitle>
                         <DialogDescription>
-                            Por favor, copie o código de pagamento para o depósito de R$ {selectedAmount}.
+                            Por favor, copie o código de pagamento para o depósito de Z&#x24E6; {selectedAmount}.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedAmount === 1 && (
@@ -499,7 +499,7 @@ export default function Dashboard() {
                                 navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C");
                                 toast({
                                     title: "Código Pix copiado!",
-                                    description: "O código Pix de R$ 1 foi copiado para a área de transferência."
+                                    description: "O código Pix de Z&#x24E6; 1 foi copiado para a área de transferência."
                                 });
                             }}>Copiar Código Pix</Button>
                             <Button type="button" onClick={() => handleConfirmDeposit()}>
@@ -521,7 +521,7 @@ export default function Dashboard() {
                                 navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46");
                                 toast({
                                     title: "Código Pix copiado!",
-                                    description: "O código Pix de R$ 5 foi copiado para a área de transferência."
+                                    description: "O código Pix de Z&#x24E6; 5 foi copiado para a área de transferência."
                                 });
                             }}>Copiar Código Pix</Button>
                             <Button type="button" onClick={() => handleConfirmDeposit()}>
@@ -543,7 +543,7 @@ export default function Dashboard() {
                                 navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786");
                                 toast({
                                     title: "Código Pix copiado!",
-                                    description: "O código Pix de R$ 10 foi copiado para a área de transferência."
+                                    description: "O código Pix de Z&#x24E6; 10 foi copiado para a área de transferência."
                                 });
                             }}>Copiar Código Pix</Button>
                             <Button type="button" onClick={() => handleConfirmDeposit()}>
@@ -649,7 +649,7 @@ export default function Dashboard() {
                     <DialogHeader>
                         <DialogTitle>Confirmar Saque</DialogTitle>
                         <DialogDescription>
-                            Você está prestes a sacar R$ {withdrawAmount}. Confirme para continuar.
+                            Você está prestes a sacar Z&#x24E6; {withdrawAmount}. Confirme para continuar.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -691,5 +691,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
-

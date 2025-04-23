@@ -269,7 +269,7 @@ export default function Profile() {
           </div>
 
           <div>
-            <h2 className="text-xl font-semibold mt-4">Valor Total Transferido: R$ {loading ? <Skeleton width={100}/> : totalAmountTransferred.toFixed(2)}</h2>
+            <h2 className="text-xl font-semibold mt-4">Valor Total Transferido: Z&#x24E6; {loading ? <Skeleton width={100}/> : totalAmountTransferred.toFixed(2)}</h2>
           </div>
 
           <div>
@@ -296,4 +296,3 @@ export default function Profile() {
     </div>
   );
 }
-

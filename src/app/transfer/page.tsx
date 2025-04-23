@@ -275,7 +275,7 @@ export default function Transfer() {
 
         toast({
           title: "Transferência realizada com sucesso!",
-          description: `R$ ${parsedValor} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
+          description: `Z&#x24E6; ${parsedValor} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
         });
       }
     } catch (error: any) {
@@ -323,7 +323,7 @@ export default function Transfer() {
         <CardContent className="grid gap-4 main-content">
            <div>
             <p className="text-lg font-semibold">
-              Saldo Atual: R$ {loadingSaldo ? <Skeleton width={100}/> : (saldo !== null ? saldo.toFixed(2) : "Carregando...")}
+              Saldo Atual: Z&#x24E6; {loadingSaldo ? <Skeleton width={100}/> : (saldo !== null ? saldo.toFixed(2) : "Carregando...")}
             </p>
           </div>
           <div className="grid gap-2">
@@ -354,7 +354,7 @@ export default function Transfer() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Confirmação de Transferência</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Tem certeza que deseja transferir R$ {valor} para {destinatarioNome} ({destinatarioEmail})?
+                  Tem certeza que deseja transferir Z&#x24E6; {valor} para {destinatarioNome} ({destinatarioEmail})?
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -370,7 +370,7 @@ export default function Transfer() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Transferência realizada com sucesso!</AlertDialogTitle>
                   <AlertDialogDescription>
-                    R$ {valorTransferencia} foi transferido para {successDestinatarioNome} ({successDestinatarioEmail}).
+                    Z&#x24E6; {valorTransferencia} foi transferido para {successDestinatarioNome} ({successDestinatarioEmail}).
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -388,7 +388,7 @@ export default function Transfer() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Saldo Insuficiente</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Você não tem saldo suficiente para transferir R$ {valorTransferencia} para {successDestinatarioNome} ({successDestinatarioEmail}).
+                  Você não tem saldo suficiente para transferir Z&#x24E6; {valorTransferencia} para {successDestinatarioNome} ({successDestinatarioEmail}).
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -415,4 +415,3 @@ export default function Transfer() {
     </div>
   );
 }
-

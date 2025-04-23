@@ -128,7 +128,7 @@ export default function Admin() {
 
       toast({
         title: "Depósito aprovado com sucesso!",
-        description: `R$${amount} foi adicionado à conta do usuário.`,
+        description: `Z${amount} foi adicionado à conta do usuário.`,
       });
       fetchPendingDeposits(); // Refresh the list
     } catch (error: any) {
@@ -158,7 +158,7 @@ export default function Admin() {
 
             toast({
                 title: "Depósito rejeitado com sucesso!",
-                description: `O depósito de R$${amount} do usuário foi rejeitado.`,
+                description: `O depósito de Z${amount} do usuário foi rejeitado.`,
             });
             fetchPendingDeposits(); // Refresh the list
         } catch (error: any) {
@@ -237,7 +237,7 @@ export default function Admin() {
               {pendingDeposits.map((deposit) => (
                 <Card key={deposit.id} className="shadow-sm">
                   <CardHeader>
-                    <CardTitle>Depósito de R$ {deposit.amount}</CardTitle>
+                    <CardTitle>Depósito de Z&#x24E6; {deposit.amount}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p>Usuário ID: {deposit.userId}</p>
@@ -261,4 +261,3 @@ export default function Admin() {
     </div>
   );
 }
-
