@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, getDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -35,6 +37,8 @@ export default function Dashboard() {
     const router = useRouter();
     const { toast } = useToast();
     const [isCaixinhaModalOpen, setIsCaixinhaModalOpen] = useState(false);
+    const [addCaixinhaValue, setAddCaixinhaValue] = useState<string>("");
+    const [withdrawCaixinhaValue, setWithdrawCaixinhaValue] = useState<string>("");
 
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -98,6 +102,104 @@ export default function Dashboard() {
 
         return () => unsubscribe();
     }, [auth, db, router, fetchUserBalance]);
+
+     const handleAddCaixinha = async () => {
+         if (!auth.currentUser || !addCaixinhaValue) {
+             return;
+         }
+         const value = parseFloat(addCaixinhaValue);
+         if (isNaN(value) || value <= 0) {
+             toast({
+                 variant: "destructive",
+                 title: "Erro",
+                 description: "Por favor, insira um valor válido.",
+             });
+             return;
+         }
+
+         try {
+             const userDocRef = doc(db, "users", auth.currentUser.uid);
+             const userDoc = await getDoc(userDocRef);
+             let currentSaldo = userDoc.data().saldo || 0;
+             let currentSaldoCaixinha = userDoc.data().saldoCaixinha || 0;
+
+             if (currentSaldo < value) {
+                 toast({
+                     variant: "destructive",
+                     title: "Saldo insuficiente",
+                     description: "Você não tem saldo suficiente para adicionar à Caixinha.",
+                 });
+                 return;
+             }
+
+             await updateDoc(userDocRef, {
+                 saldo: currentSaldo - value,
+                 saldoCaixinha: currentSaldoCaixinha + value,
+             });
+             toast({
+                 title: "Sucesso",
+                 description: `Ƶ ${value} adicionado à Caixinha.`,
+             });
+
+             setAddCaixinhaValue(""); // Clear the input field
+             setIsCaixinhaModalOpen(false); // Close the modal
+         } catch (error: any) {
+             toast({
+                 variant: "destructive",
+                 title: "Erro",
+                 description: `Erro ao adicionar saldo à Caixinha: ${error.message}`,
+             });
+         }
+     };
+
+    const handleWithdrawCaixinha = async () => {
+         if (!auth.currentUser || !withdrawCaixinhaValue) {
+             return;
+         }
+         const value = parseFloat(withdrawCaixinhaValue);
+         if (isNaN(value) || value <= 0) {
+             toast({
+                 variant: "destructive",
+                 title: "Erro",
+                 description: "Por favor, insira um valor válido.",
+             });
+             return;
+         }
+
+         try {
+             const userDocRef = doc(db, "users", auth.currentUser.uid);
+             const userDoc = await getDoc(userDocRef);
+             let currentSaldo = userDoc.data().saldo || 0;
+             let currentSaldoCaixinha = userDoc.data().saldoCaixinha || 0;
+
+             if (currentSaldoCaixinha < value) {
+                 toast({
+                     variant: "destructive",
+                     title: "Saldo insuficiente",
+                     description: "Você não tem saldo suficiente para retirar da Caixinha.",
+                 });
+                 return;
+             }
+
+             await updateDoc(userDocRef, {
+                 saldo: currentSaldo + value,
+                 saldoCaixinha: currentSaldoCaixinha - value,
+             });
+             toast({
+                 title: "Sucesso",
+                 description: `Ƶ ${value} retirado da Caixinha.`,
+             });
+
+             setWithdrawCaixinhaValue(""); // Clear the input field
+             setIsCaixinhaModalOpen(false); // Close the modal
+         } catch (error: any) {
+             toast({
+                 variant: "destructive",
+                 title: "Erro",
+                 description: `Erro ao retirar saldo da Caixinha: ${error.message}`,
+             });
+         }
+     };
 
     return (
         <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
@@ -167,6 +269,31 @@ export default function Dashboard() {
                             Saldo Caixinha: Ƶ {loading ? <Skeleton width={100}/> : (saldoCaixinha !== null ? saldoCaixinha.toFixed(2) : "0.00")}
                         </DialogDescription>
                     </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                         <div className="grid gap-2">
+                            <Label htmlFor="addCaixinhaValue">Adicionar Saldo:</Label>
+                            <Input
+                                type="number"
+                                id="addCaixinhaValue"
+                                placeholder="0.00"
+                                value={addCaixinhaValue}
+                                onChange={(e) => setAddCaixinhaValue(e.target.value)}
+                            />
+                            <Button onClick={handleAddCaixinha}>Adicionar</Button>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="withdrawCaixinhaValue">Retirar Saldo:</Label>
+                            <Input
+                                type="number"
+                                id="withdrawCaixinhaValue"
+                                placeholder="0.00"
+                                value={withdrawCaixinhaValue}
+                                onChange={(e) => setWithdrawCaixinhaValue(e.target.value)}
+                            />
+                            <Button onClick={handleWithdrawCaixinha}>Retirar</Button>
+                        </div>
+                    </div>
                     
                 </DialogContent>
             </Dialog>
@@ -174,5 +301,4 @@ export default function Dashboard() {
         </div>
     );
 }
-
 

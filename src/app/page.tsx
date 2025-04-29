@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -74,6 +73,7 @@ export default function Home() {
             name: name,
             email: email,
             saldo: 0, // Initial balance
+            saldoCaixinha: 0, // Initial caixinha balance
             isAdmin: false, // Set admin status
             createdAt: new Date().toISOString(), // Save account creation date
           });
