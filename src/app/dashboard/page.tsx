@@ -7,7 +7,7 @@ import { getFirestore, doc, getDoc, onSnapshot, updateDoc, collection, query, ge
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Wallet, Clock, User, PiggyBank } from 'lucide-react';
+import { Home, Wallet, Clock, User, PiggyBank, Settings } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
 import { ThemeProvider } from "@/components/ui/theme-provider";
@@ -51,6 +51,8 @@ export default function Dashboard() {
     const [isCaixinhaModalOpen, setIsCaixinhaModalOpen] = useState(false);
     const [addCaixinhaValue, setAddCaixinhaValue] = useState<string>("");
     const [withdrawCaixinhaValue, setWithdrawCaixinhaValue] = useState<string>("");
+    const [adminNormalBalance, setAdminNormalBalance] = useState<number | null>(null);
+    const [adminCaixinhaBalance, setAdminCaixinhaBalance] = useState<number | null>(null);
 
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -70,6 +72,31 @@ export default function Dashboard() {
             setLoadingSaldo(false);
         }
     }, [db]);
+
+    const fetchAdminBalances = useCallback(async (userId: string) => {
+        if (!userId) return;
+        try {
+            const userDoc = doc(db, "users", userId);
+            const docSnap = await getDoc(userDoc);
+
+            if (docSnap.exists()) {
+                setAdminNormalBalance(docSnap.data().saldo || 0);
+                setAdminCaixinhaBalance(docSnap.data().saldoCaixinha || 0);
+            } else {
+                setAdminNormalBalance(null);
+                setAdminCaixinhaBalance(null);
+            }
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: `Erro ao carregar saldos do usuário: ${error.message}`,
+            });
+            setAdminNormalBalance(null);
+            setAdminCaixinhaBalance(null);
+        }
+    }, [db, toast]);
+
   const fetchUsers = async () => {
     try {
       const usersCollection = collection(db, "users");
@@ -276,6 +303,7 @@ export default function Dashboard() {
 
       setAddRemoveAmount("");
       fetchUsers(); // Refresh users list
+      fetchAdminBalances(selectedUserId);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -310,7 +338,7 @@ export default function Dashboard() {
                 <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" /></Button>
                 <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" /></Button>
                 <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" /></Button>
-                <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" /></Button>
++            <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" /></Button>
             </div>
             <Separator className="w-full max-w-md mb-8 z-20" />
 
@@ -393,7 +421,10 @@ export default function Dashboard() {
                <select
                  id="user"
                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                 onChange={(e) => setSelectedUserId(e.target.value)}
+                 onChange={(e) => {
+                     setSelectedUserId(e.target.value);
+                     fetchAdminBalances(e.target.value);
+                 }}
                  value={selectedUserId || ""}
                >
                  <option value="">Selecione um usuário</option>
@@ -403,6 +434,12 @@ export default function Dashboard() {
                    </option>
                  ))}
                </select>
+               {selectedUserId && (
+                <div>
+                  <p>Saldo Normal: Ƶ {adminNormalBalance !== null ? adminNormalBalance.toFixed(2) : "Carregando..."}</p>
+                  <p>Saldo Caixinha: Ƶ {adminCaixinhaBalance !== null ? adminCaixinhaBalance.toFixed(2) : "Carregando..."}</p>
+                </div>
+              )}
              </div>
              <div>
                <Label htmlFor="balanceType">Tipo de Saldo</Label>
@@ -427,10 +464,16 @@ export default function Dashboard() {
                />
              </div>
              <div className="flex space-x-2">
-               <Button variant="outline" onClick={() => setIsAdding(true)}>
+               <Button
+                 variant={isAdding ? "default" : "outline"}
+                 onClick={() => setIsAdding(true)}
+               >
                  Adicionar
                </Button>
-               <Button variant="outline" onClick={() => setIsAdding(false)}>
+               <Button
+                 variant={!isAdding ? "default" : "outline"}
+                 onClick={() => setIsAdding(false)}
+               >
                  Remover
                </Button>
              </div>
