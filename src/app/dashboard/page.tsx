@@ -163,7 +163,7 @@ export default function Dashboard() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Caixinha</DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="text-2xl">
                             Saldo Caixinha: Ƶ {loading ? <Skeleton width={100}/> : (saldoCaixinha !== null ? saldoCaixinha.toFixed(2) : "0.00")}
                         </DialogDescription>
                     </DialogHeader>
@@ -174,4 +174,5 @@ export default function Dashboard() {
         </div>
     );
 }
+
 
