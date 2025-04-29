@@ -3,11 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, onSnapshot, updateDoc, collection, query, getDocs, where } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Wallet, Clock, User } from 'lucide-react';
+import { Home, Wallet, Clock, User, PiggyBank } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
 import { ThemeProvider } from "@/components/ui/theme-provider";
@@ -15,6 +15,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const firebaseConfig = {
     apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -32,8 +39,13 @@ const app = initializeApp(firebaseConfig);
 export default function Dashboard() {
     const [saldo, setSaldo] = useState<number | null>(null);
     const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loadingSaldo, setLoadingSaldo] = useState<boolean>(true);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
+    const [users, setUsers] = useState<any[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string>("");
+    const [addRemoveAmount, setAddRemoveAmount] = useState<string>("");
+    const [isAdding, setIsAdding] = useState<boolean>(true);
+    const [selectedBalanceType, setSelectedBalanceType] = useState<"saldo" | "saldoCaixinha">("saldo");
     const router = useRouter();
     const { toast } = useToast();
     const [isCaixinhaModalOpen, setIsCaixinhaModalOpen] = useState(false);
@@ -50,20 +62,35 @@ export default function Dashboard() {
         if (docSnap.exists()) {
             setSaldo(docSnap.data().saldo || 0);
             setSaldoCaixinha(docSnap.data().saldoCaixinha || 0);
-            setLoading(false);
+            setLoadingSaldo(false);
         } else {
             console.log("No such document!");
             setSaldo(0);
             setSaldoCaixinha(0);
-            setLoading(false);
+            setLoadingSaldo(false);
         }
     }, [db]);
+  const fetchUsers = async () => {
+    try {
+      const usersCollection = collection(db, "users");
+      const usersSnapshot = await getDocs(usersCollection);
+      const usersList = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsers(usersList);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar usuários",
+        description: error.message,
+      });
+    }
+  };
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 fetchUserBalance(user.uid);
                 setIsAdmin(false); // Default to false, will be updated by the next listener
+                fetchUsers();
 
                 //Check if user exists
                 const userDocRef = doc(db, "users", user.uid);
@@ -201,6 +228,63 @@ export default function Dashboard() {
          }
      };
 
+  const handleAddRemoveBalance = async () => {
+    if (!selectedUserId || !addRemoveAmount) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Por favor, selecione um usuário e insira um valor.",
+      });
+      return;
+    }
+
+    const value = parseFloat(addRemoveAmount);
+
+    if (isNaN(value)) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Por favor, insira um valor numérico válido.",
+      });
+      return;
+    }
+
+    try {
+      const userDocRef = doc(db, "users", selectedUserId);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Usuário não encontrado.",
+        });
+        return;
+      }
+
+      const currentBalance = userDoc.data()[selectedBalanceType] || 0;
+      const newBalance = isAdding ? currentBalance + value : currentBalance - value;
+
+      await updateDoc(userDocRef, {
+        [selectedBalanceType]: newBalance,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: `Saldo ${isAdding ? "adicionado" : "removido"} com sucesso.`,
+      });
+
+      setAddRemoveAmount("");
+      fetchUsers(); // Refresh users list
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: `Erro ao adicionar/remover saldo: ${error.message}`,
+      });
+    }
+  };
+
     return (
         <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
             backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
@@ -237,7 +321,7 @@ export default function Dashboard() {
                 <CardContent className="grid gap-4 main-content">
                     <div>
                         <p className="text-3xl font-semibold">
-                            Saldo Atual: Ƶ {loading ? <Skeleton width={150} /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
+                            Saldo Atual: Ƶ {loadingSaldo ? <Skeleton width={150} /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
                         </p>
                     </div>
                     <div className="flex flex-col space-y-2">
@@ -252,9 +336,9 @@ export default function Dashboard() {
                         <Button onClick={() => router.push("/profile")} variant="outline">
                             <User className="mr-2" />
                             Perfil
-                        </Button>
+                         </Button>
                          <Button onClick={() => setIsCaixinhaModalOpen(true)} variant="outline">
-                            <Wallet className="mr-2"/>
+                            <PiggyBank className="mr-2"/>
                             Caixinha
                         </Button>
                     </div>
@@ -266,7 +350,7 @@ export default function Dashboard() {
                     <DialogHeader>
                         <DialogTitle>Caixinha</DialogTitle>
                         <DialogDescription className="text-2xl">
-                            Saldo Caixinha: Ƶ {loading ? <Skeleton width={100}/> : (saldoCaixinha !== null ? saldoCaixinha.toFixed(2) : "0.00")}
+                            Saldo Caixinha: Ƶ {loadingSaldo ? <Skeleton width={100}/> : (saldoCaixinha !== null ? saldoCaixinha.toFixed(2) : "0.00")}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -298,7 +382,62 @@ export default function Dashboard() {
                 </DialogContent>
             </Dialog>
 
+       {isAdmin && (
+         <Card className="w-96 z-20 mt-4">
+           <CardHeader className="space-y-2">
+             <CardTitle>Painel de Administração</CardTitle>
+           </CardHeader>
+           <CardContent className="grid gap-4">
+             <div>
+               <Label htmlFor="user">Usuário</Label>
+               <select
+                 id="user"
+                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                 onChange={(e) => setSelectedUserId(e.target.value)}
+                 value={selectedUserId || ""}
+               >
+                 <option value="">Selecione um usuário</option>
+                 {users.map((user) => (
+                   <option key={user.id} value={user.id}>
+                     {user.email} ({user.name})
+                   </option>
+                 ))}
+               </select>
+             </div>
+             <div>
+               <Label htmlFor="balanceType">Tipo de Saldo</Label>
+               <select
+                 id="balanceType"
+                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                 onChange={(e) => setSelectedBalanceType(e.target.value as "saldo" | "saldoCaixinha")}
+                 value={selectedBalanceType}
+               >
+                 <option value="saldo">Saldo Normal</option>
+                 <option value="saldoCaixinha">Saldo Caixinha</option>
+               </select>
+             </div>
+             <div>
+               <Label htmlFor="amount">Valor</Label>
+               <Input
+                 type="number"
+                 id="amount"
+                 placeholder="0.00"
+                 value={addRemoveAmount}
+                 onChange={(e) => setAddRemoveAmount(e.target.value)}
+               />
+             </div>
+             <div className="flex space-x-2">
+               <Button variant="outline" onClick={() => setIsAdding(true)}>
+                 Adicionar
+               </Button>
+               <Button variant="outline" onClick={() => setIsAdding(false)}>
+                 Remover
+               </Button>
+             </div>
+             <Button onClick={handleAddRemoveBalance}>Aplicar</Button>
+           </CardContent>
+         </Card>
+       )}
         </div>
     );
 }
-
