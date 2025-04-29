@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -466,3 +467,4 @@ export default function Dashboard() {
         </div>
     );
 }
+
