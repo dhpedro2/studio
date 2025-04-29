@@ -2,20 +2,17 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
-import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, onSnapshot, addDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Home, Wallet, Clock, User } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, Upload, Settings, Download } from 'lucide-react';
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getStorage } from "firebase/storage"; // Import getStorage
 
 const firebaseConfig = {
     apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -35,38 +32,35 @@ export default function Dashboard() {
     const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
-    const [users, setUsers] = useState<any[]>([]);
-    const [selectedUserId, setSelectedUserId] = useState<string>("");
-    const [addRemoveAmount, setAddRemoveAmount] = useState<string>("");
     const router = useRouter();
     const { toast } = useToast();
     const [isCaixinhaModalOpen, setIsCaixinhaModalOpen] = useState(false);
 
     const auth = getAuth(app);
     const db = getFirestore(app);
-    const storage = getStorage(app);
 
     const fetchUserBalance = useCallback(async (userId: string) => {
         const userDoc = doc(db, "users", userId);
         const docSnap = await getDoc(userDoc);
 
         if (docSnap.exists()) {
-            setLoading(false);
             setSaldo(docSnap.data().saldo || 0);
             setSaldoCaixinha(docSnap.data().saldoCaixinha || 0);
+            setLoading(false);
         } else {
             console.log("No such document!");
             setSaldo(0);
             setSaldoCaixinha(0);
+            setLoading(false);
         }
     }, [db]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                setLoading(true);
                 fetchUserBalance(user.uid);
                 setIsAdmin(false); // Default to false, will be updated by the next listener
+
                 //Check if user exists
                 const userDocRef = doc(db, "users", user.uid);
                 const userDoc = await getDoc(userDocRef);
@@ -81,7 +75,7 @@ export default function Dashboard() {
                     });
                     return;
                 }
-
+                
                 // Listen for real-time balance updates
                 const userDocRef2 = doc(db, "users", user.uid);
                 onSnapshot(userDocRef2, (doc) => {
@@ -90,7 +84,6 @@ export default function Dashboard() {
                         setSaldoCaixinha(doc.data().saldoCaixinha || 0);
                     }
                 });
-
                 // Listen for admin status
                 const adminDocRef = doc(db, "users", user.uid);
                 getDoc(adminDocRef).then((docSnap) => {
@@ -98,7 +91,6 @@ export default function Dashboard() {
                         setIsAdmin(docSnap.data().isAdmin || false);
                     }
                 });
-
             } else {
                 router.push("/");
             }
@@ -106,106 +98,6 @@ export default function Dashboard() {
 
         return () => unsubscribe();
     }, [auth, db, router, fetchUserBalance]);
-
-    useEffect(() => {
-        const fetchUsers = async () => {
-            if (isAdmin) {
-                const usersCollection = collection(db, "users");
-                const usersSnapshot = await getDocs(usersCollection);
-                const usersList = usersSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                setUsers(usersList);
-            }
-        };
-
-        fetchUsers();
-    }, [isAdmin, db]);
-
-    const handleLogout = async () => {
-        try {
-            await signOut(auth);
-            router.push("/");
-            toast({
-                title: "Logout realizado com sucesso!",
-                description: "Redirecionando para a página inicial...",
-            });
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Erro ao realizar o logout",
-                description: error.message,
-            });
-        }
-    };
-
-    const handleAddRemoveSaldo = async () => {
-        if (!selectedUserId || !addRemoveAmount) {
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Por favor, selecione um usuário e insira um valor.",
-            });
-            return;
-        }
-
-        const amount = parseFloat(addRemoveAmount);
-        if (isNaN(amount)) {
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Por favor, insira um valor válido.",
-            });
-            return;
-        }
-
-        try {
-            const userDocRef = doc(db, "users", selectedUserId);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-                const currentSaldo = userDoc.data().saldo || 0;
-                const newSaldo = currentSaldo + amount;
-
-                await updateDoc(userDocRef, {
-                    saldo: newSaldo,
-                 });
-
-                toast({
-                    title: "Saldo atualizado com sucesso!",
-                    description: `Saldo de ${userDoc.data().name} atualizado para Ƶ ${newSaldo.toFixed(2)}.`,
-                });
-                setAddRemoveAmount("");
-                // Refresh users list
-                const fetchUsers = async () => {
-                    if (isAdmin) {
-                        const usersCollection = collection(db, "users");
-                        const usersSnapshot = await getDocs(usersCollection);
-                        const usersList = usersSnapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        }));
-                        setUsers(usersList);
-                    }
-                };
-
-                fetchUsers();
-            } else {
-                toast({
-                    variant: "destructive",
-                    title: "Erro",
-                    description: "Usuário não encontrado.",
-                });
-            }
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Erro ao atualizar o saldo",
-                description: error.message,
-            });
-        }
-    };
-        
 
     return (
         <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
@@ -245,9 +137,6 @@ export default function Dashboard() {
                         <p className="text-3xl font-semibold">
                             Saldo Atual: Ƶ {loading ? <Skeleton width={150} /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
                         </p>
-                        <p className="text-3xl font-semibold">
-                            Saldo Caixinha: Ƶ {loading ? <Skeleton width={150} /> : (saldoCaixinha !== null ? saldoCaixinha.toFixed(2) : "0.00")}
-                        </p>
                     </div>
                     <div className="flex flex-col space-y-2">
                         <Button onClick={() => router.push("/transfer")} variant="outline">
@@ -270,43 +159,6 @@ export default function Dashboard() {
 
                 </CardContent>
             </Card>
-
-            {isAdmin && (
-                <Card className="w-96 mt-8 z-20">
-                    <CardHeader className="space-y-1">
-                        <CardTitle>Painel de Administração</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-4">
-                        <div>
-                            <Label htmlFor="user">Selecione um usuário:</Label>
-                            <select
-                                id="user"
-                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={selectedUserId}
-                                onChange={(e) => setSelectedUserId(e.target.value)}
-                            >
-                                <option value="">Selecione</option>
-                                {users.map((user) => (
-                                    <option key={user.id} value={user.id}>
-                                        {user.name} ({user.email}) - Ƶ {user.saldo ? user.saldo.toFixed(2) : '0.00'}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="amount">Adicionar/Remover Saldo:</Label>
-                            <Input
-                                id="amount"
-                                type="number"
-                                placeholder="Valor"
-                                value={addRemoveAmount}
-                                onChange={(e) => setAddRemoveAmount(e.target.value)}
-                            />
-                        </div>
-                        <Button onClick={handleAddRemoveSaldo}>Atualizar Saldo</Button>
-                    </CardContent>
-                </Card>
-            )}
             <Dialog open={isCaixinhaModalOpen} onOpenChange={setIsCaixinhaModalOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -322,3 +174,4 @@ export default function Dashboard() {
         </div>
     );
 }
+
