@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -13,8 +12,6 @@ import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User, Upload, Settings, Download } from 'lucide-react';
-import { Skeleton } from "@/components/ui/skeleton";
-import '@/app/globals.css';
 import {
     Dialog,
     DialogTrigger,
@@ -62,6 +59,7 @@ export default function Dashboard() {
     const [isWithdrawConfirmationModalOpen, setIsWithdrawConfirmationModalOpen] = useState(false);
     const [pixKey, setPixKey] = useState<string>("");
     const [isPixKeyModalOpen, setIsPixKeyModalOpen] = useState(false);
+    const [isCaixinhaModalOpen, setIsCaixinhaModalOpen] = useState(false);
 
 
     const auth = getAuth(app);
@@ -408,14 +406,10 @@ export default function Dashboard() {
                             <User className="mr-2" />
                             Perfil
                         </Button>
-                        {/*<Button onClick={() => setIsDepositModalOpen(true)} variant="outline">
-                            <Upload className="mr-2" />
-                            Depositar via Pix
+                         <Button onClick={() => setIsCaixinhaModalOpen(true)} variant="outline">
+                            
+                            Caixinha
                         </Button>
-                        <Button onClick={() => setIsWithdrawModalOpen(true)} variant="outline">
-                            <Download className="mr-2" />
-                            Sacar via Pix
-                        </Button>*/}
                     </div>
 
                 </CardContent>
@@ -457,239 +451,18 @@ export default function Dashboard() {
                     </CardContent>
                 </Card>
             )}
-            <Dialog open={isDepositModalOpen} onOpenChange={setIsDepositModalOpen}>
+            <Dialog open={isCaixinhaModalOpen} onOpenChange={setIsCaixinhaModalOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Depositar via Pix</DialogTitle>
+                        <DialogTitle>Caixinha</DialogTitle>
                         <DialogDescription>
-                            Selecione o valor que deseja depositar.
+                            Em construção
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid grid-cols-3 gap-4 py-4">
-                        <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(1)}>Ƶ 1</Button>
-                        </div>
-                        <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(5)}>Ƶ 5</Button>
-                        </div>
-                        <div>
-                            <Button variant="outline" className="w-full" onClick={() => handleSelectAmount(10)}>Ƶ 10</Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={isConfirmationModalOpen} onOpenChange={setIsConfirmationModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Confirmar Depósito</DialogTitle>
-                        <DialogDescription>
-                            Por favor, copie o código de pagamento para o depósito de Ƶ {selectedAmount}.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {selectedAmount === 1 && (
-                        <div className="p-4 border rounded-md">
-                            <p className="font-semibold">Chave Pix (Copiar e Colar):</p>
-                            <Input
-                                type="text"
-                                value="00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C"
-                                readOnly
-                                className="mb-2"
-                            />
-                            <Button variant="outline" size="sm" onClick={() => {
-                                navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654041.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr15730379126831036304591C");
-                                toast({
-                                    title: "Código Pix copiado!",
-                                    description: "O código Pix de Ƶ 1 foi copiado para a área de transferência."
-                                });
-                            }}>Copiar Código Pix</Button>
-                            <Button type="button" onClick={() => handleConfirmDeposit()}>
-                                Pronto
-                            </Button>
-                        </div>
-                    )}
-
-                    {selectedAmount === 5 && (
-                        <div className="p-4 border rounded-md">
-                            <p className="font-semibold">Chave Pix (Copiar e Colar):</p>
-                            <Input
-                                type="text"
-                                value="00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46"
-                                readOnly
-                                className="mb-2"
-                            />
-                            <Button variant="outline" size="sm" onClick={() => {
-                                navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d352040000530398654045.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791289395463044C46");
-                                toast({
-                                    title: "Código Pix copiado!",
-                                    description: "O código Pix de Ƶ 5 foi copiado para a área de transferência."
-                                });
-                            }}>Copiar Código Pix</Button>
-                            <Button type="button" onClick={() => handleConfirmDeposit()}>
-                                Pronto
-                            </Button>
-                        </div>
-                    )}
-
-                    {selectedAmount === 10 && (
-                        <div className="p-4 border rounded-md">
-                            <p className="font-semibold">Chave Pix (Copiar e Colar):</p>
-                            <Input
-                                type="text"
-                                value="00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786"
-                                readOnly
-                                className="mb-2"
-                            />
-                            <Button variant="outline" size="sm" onClick={() => {
-                                navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136eef1060a-381c-4977-9d39-a2b57faf51d3520400005303986540510.005802BR5924Pedro Vinicius Oliveira 6008Brasilia62240520daqr157303791203347963043786");
-                                toast({
-                                    title: "Código Pix copiado!",
-                                    description: "O código Pix de Ƶ 10 foi copiado para a área de transferência."
-                                });
-                            }}>Copiar Código Pix</Button>
-                            <Button type="button" onClick={() => handleConfirmDeposit()}>
-                                Pronto
-                            </Button>
-                        </div>
-                    )}
-
                     
-                    <DialogFooter>
-                        <Button type="button" onClick={() => setIsConfirmationModalOpen(false)}>
-                            Cancelar
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            <Dialog open={isCPFModalOpen} onOpenChange={setIsCPFModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Confirmar Depósito</DialogTitle>
-                        <DialogDescription>
-                            Para confirmar o depósito, por favor, insira seu CPF.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-2 py-4">
-                        <Label htmlFor="cpf">CPF:</Label>
-                        <Input
-                            id="cpf"
-                            type="text"
-                            placeholder="000.000.000-00"
-                            value={cpf}
-                            onChange={(e) => setCPF(e.target.value)}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" onClick={() => handleSendCPF()}>
-                            Enviar
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isWithdrawModalOpen} onOpenChange={setIsWithdrawModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Sacar via Pix</DialogTitle>
-                        <DialogDescription>
-                            Digite o valor que deseja sacar.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-2 py-4">
-                        <Label htmlFor="withdrawAmount">Valor do Saque:</Label>
-                        <Input
-                            id="withdrawAmount"
-                            type="number"
-                            placeholder="Valor a sacar"
-                            value={withdrawAmount || ""}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                const parsedValue = value === "" ? null : parseFloat(value);
-                                setWithdrawAmount(parsedValue);
-                            }}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" onClick={() => {
-                            if (withdrawAmount === null) {
-                                toast({
-                                    variant: "destructive",
-                                    title: "Erro",
-                                    description: "Por favor, insira um valor válido.",
-                                });
-                                return;
-                            }
-                            if (withdrawAmount > (saldo || 0)) {
-                                toast({
-                                    variant: "destructive",
-                                    title: "Saldo insuficiente",
-                                    description: "Você não tem saldo suficiente para sacar este valor.",
-                                });
-                                return;
-                            }
-
-                             if (withdrawAmount <= 0) {
-                                toast({
-                                    variant: "destructive",
-                                    title: "Erro",
-                                    description: "Por favor, insira um valor válido e positivo para saque.",
-                                });
-                                return;
-                            }
-
-                            handleSelectWithdrawAmount();
-                        }}>
-                            Confirmar
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={isWithdrawConfirmationModalOpen} onOpenChange={setIsWithdrawConfirmationModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Confirmar Saque</DialogTitle>
-                        <DialogDescription>
-                            Você está prestes a sacar Ƶ {withdrawAmount}. Confirme para continuar.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button type="button" onClick={() => setIsWithdrawConfirmationModalOpen(false)}>
-                            Cancelar
-                        </Button>
-                        <Button type="button" onClick={() => handleConfirmWithdraw()}>
-                            Confirmar
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={isPixKeyModalOpen} onOpenChange={setIsPixKeyModalOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Chave Pix</DialogTitle>
-                        <DialogDescription>
-                            Por favor, insira sua Chave Pix para receber o saque.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-2 py-4">
-                        <Label htmlFor="pixKey">Chave Pix:</Label>
-                        <Input
-                            id="pixKey"
-                            type="text"
-                            placeholder="Sua chave Pix"
-                            value={pixKey}
-                            onChange={(e) => setPixKey(e.target.value)}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" onClick={handleSendWithdrawRequest}>
-                            Sacar
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
-
