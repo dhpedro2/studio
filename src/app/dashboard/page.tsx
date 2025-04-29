@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, onSnapshot, addDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { Home, Wallet, Clock, User, Upload, Settings, Download } from 'lucide-re
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getStorage } from "firebase/storage"; // Import getStorage
 
 const firebaseConfig = {
     apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -31,7 +32,7 @@ const app = initializeApp(firebaseConfig);
 
 export default function Dashboard() {
     const [saldo, setSaldo] = useState<number | null>(null);
-        const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
+    const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const [users, setUsers] = useState<any[]>([]);
@@ -52,11 +53,11 @@ export default function Dashboard() {
         if (docSnap.exists()) {
             setLoading(false);
             setSaldo(docSnap.data().saldo || 0);
-                        setSaldoCaixinha(docSnap.data().saldoCaixinha || 0);
+            setSaldoCaixinha(docSnap.data().saldoCaixinha || 0);
         } else {
             console.log("No such document!");
             setSaldo(0);
-                        setSaldoCaixinha(0);
+            setSaldoCaixinha(0);
         }
     }, [db]);
 
