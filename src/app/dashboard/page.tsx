@@ -408,7 +408,7 @@ export default function Dashboard() {
                             Perfil
                         </Button>
                          <Button onClick={() => setIsCaixinhaModalOpen(true)} variant="outline">
-                            
+                            <Wallet className="mr-2"/>
                             Caixinha
                         </Button>
                     </div>
@@ -467,4 +467,5 @@ export default function Dashboard() {
         </div>
     );
 }
+
 
