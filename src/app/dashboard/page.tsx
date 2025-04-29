@@ -12,17 +12,6 @@ import { Label } from "@/components/ui/label";
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User, Upload, Settings, Download } from 'lucide-react';
-import {
-    Dialog,
-    DialogTrigger,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-    DialogClose,
-} from "@/components/ui/dialog";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -48,20 +37,7 @@ export default function Dashboard() {
     const [addRemoveAmount, setAddRemoveAmount] = useState<string>("");
     const router = useRouter();
     const { toast } = useToast();
-    const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
-    const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-    const [receiptFile, setReceiptFile] = useState<File | null>(null);
-    const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
-    const [pixCode, setPixCode] = useState<string>("");
-    const [isCPFModalOpen, setIsCPFModalOpen] = useState(false);
-    const [cpf, setCPF] = useState<string>("");
-    const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-    const [withdrawAmount, setWithdrawAmount] = useState<number | null>(null);
-    const [isWithdrawConfirmationModalOpen, setIsWithdrawConfirmationModalOpen] = useState(false);
-    const [pixKey, setPixKey] = useState<string>("");
-    const [isPixKeyModalOpen, setIsPixKeyModalOpen] = useState(false);
     const [isCaixinhaModalOpen, setIsCaixinhaModalOpen] = useState(false);
-
 
     const auth = getAuth(app);
     const db = getFirestore(app);
@@ -223,137 +199,7 @@ export default function Dashboard() {
             });
         }
     };
-
-    const handleSelectWithdrawAmount = () => {
-        setIsWithdrawConfirmationModalOpen(true);
-    };
-
-        const handleConfirmWithdraw = () => {
-            setIsWithdrawConfirmationModalOpen(false);
-            setIsPixKeyModalOpen(true);
-        };
-
-        const handleSendWithdrawRequest = async () => {
-             if (!pixKey) {
-                toast({
-                    variant: "destructive",
-                    title: "Erro",
-                    description: "Por favor, insira sua Chave Pix.",
-                });
-                return;
-            }
-
-             if (withdrawAmount === null || withdrawAmount <= 0) {
-                toast({
-                    variant: "destructive",
-                    title: "Erro",
-                    description: "Por favor, insira um valor válido e positivo para saque.",
-                });
-                return;
-            }
-
-            if (auth.currentUser && withdrawAmount !== null && saldo !== null) {
-                if (withdrawAmount > saldo) {
-                    toast({
-                        variant: "destructive",
-                        title: "Saldo insuficiente",
-                        description: "Você não tem saldo suficiente para sacar este valor.",
-                    });
-                    setIsPixKeyModalOpen(false);
-                    return;
-                }
-                
-
-                try {
-                    // Send notification to Discord webhook
-                    const webhookBody = {
-                        content: `Novo pedido de saque:\nUsuário: ${auth.currentUser.email}\nData: ${new Date().toLocaleString()}\nValor: Ƶ${withdrawAmount}\nChave Pix: ${pixKey}`
-                    };
-
-                    const webhookUrl = "https://discord.com/api/webhooks/1363289919480528987/MAW66tTBzQXeuFYki7X3zN7VF74KuxdJgnIiujhFerQuFXS5aHElG_aa6cwupr2uhEfZ";
-
-                    const response = await fetch(webhookUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(webhookBody),
-                    });
-
-                    if (response.ok) {
-                         // Subtract the withdrawn amount from the user's balance
-                        const userDocRef = doc(db, "users", auth.currentUser.uid);
-                        const currentSaldo = saldo;  // Use the state variable directly
-                        const newSaldo = currentSaldo - withdrawAmount;
-
-                        await updateDoc(userDocRef, {
-                            saldo: newSaldo,
-                        });
-
-                          toast({
-                                title: "Pedido de saque enviado!",
-                                description: "Seu pedido de saque foi enviado para análise. Aguarde a confirmação.",
-                           });
-                    } else {
-                        toast({
-                            variant: "destructive",
-                            title: "Erro ao enviar pedido de saque",
-                            description: "Ocorreu um erro ao enviar o pedido. Por favor, tente novamente.",
-                        });
-                    }
-
-                    setIsPixKeyModalOpen(false);
-                    setPixKey("");
-
-                } catch (error: any) {
-                    toast({
-                        variant: "destructive",
-                        title: "Erro ao enviar pedido de saque",
-                        description: error.message,
-                    });
-                }
-            }
-        };
-
-    const handleSelectAmount = (amount: number) => {
-        setSelectedAmount(amount);
-        setIsDepositModalOpen(false);
-        setIsConfirmationModalOpen(true);
-    };
-
-    const handleConfirmDeposit = () => {
-        setIsConfirmationModalOpen(false);
-        setIsCPFModalOpen(true);
-    };
-
-    const handleSendCPF = async () => {
-        if (!cpf) {
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Por favor, insira seu CPF.",
-            });
-            return;
-        }
-
-        if (auth.currentUser && selectedAmount !== null) {
-            try {
-                toast({
-                    title: "Depósito solicitado!",
-                    description: `Seu depósito de Ƶ${selectedAmount} está sendo processado.`,
-                });
-                setIsCPFModalOpen(false);
-                setCPF(""); // Clear CPF after sending
-            } catch (error: any) {
-                toast({
-                    variant: "destructive",
-                    title: "Erro ao enviar o comprovante",
-                    description: error.message,
-                });
-            }
-        }
-    };
-
+        
 
     return (
         <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
@@ -467,5 +313,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
-
