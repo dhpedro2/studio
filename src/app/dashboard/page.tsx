@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, onSnapshot, addDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User, Upload, Settings, Download } from 'lucide-react';
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -30,6 +31,7 @@ const app = initializeApp(firebaseConfig);
 
 export default function Dashboard() {
     const [saldo, setSaldo] = useState<number | null>(null);
+        const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const [users, setUsers] = useState<any[]>([]);
@@ -50,9 +52,11 @@ export default function Dashboard() {
         if (docSnap.exists()) {
             setLoading(false);
             setSaldo(docSnap.data().saldo || 0);
+                        setSaldoCaixinha(docSnap.data().saldoCaixinha || 0);
         } else {
             console.log("No such document!");
             setSaldo(0);
+                        setSaldoCaixinha(0);
         }
     }, [db]);
 
@@ -82,6 +86,7 @@ export default function Dashboard() {
                 onSnapshot(userDocRef2, (doc) => {
                     if (doc.exists()) {
                         setSaldo(doc.data().saldo || 0);
+                        setSaldoCaixinha(doc.data().saldoCaixinha || 0);
                     }
                 });
 
@@ -239,6 +244,9 @@ export default function Dashboard() {
                         <p className="text-3xl font-semibold">
                             Saldo Atual: Ƶ {loading ? <Skeleton width={150} /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
                         </p>
+                        <p className="text-3xl font-semibold">
+                            Saldo Caixinha: Ƶ {loading ? <Skeleton width={150} /> : (saldoCaixinha !== null ? saldoCaixinha.toFixed(2) : "0.00")}
+                        </p>
                     </div>
                     <div className="flex flex-col space-y-2">
                         <Button onClick={() => router.push("/transfer")} variant="outline">
@@ -303,7 +311,7 @@ export default function Dashboard() {
                     <DialogHeader>
                         <DialogTitle>Caixinha</DialogTitle>
                         <DialogDescription>
-                            Em construção
+                            Saldo Caixinha: Ƶ {loading ? <Skeleton width={100}/> : (saldoCaixinha !== null ? saldoCaixinha.toFixed(2) : "0.00")}
                         </DialogDescription>
                     </DialogHeader>
                     
