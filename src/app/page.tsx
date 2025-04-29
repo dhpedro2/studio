@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { initializeApp } from "firebase/app";
+import '@/app/globals.css';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -31,7 +32,7 @@ export default function Home() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const { toast } = useToast();
   const router = useRouter();
@@ -42,79 +43,97 @@ export default function Home() {
     e.preventDefault();
 
     if (isRegistering) {
-            if (!name) {
-                toast({
-                    variant: "destructive",
-                    title: "Erro",
-                    description: "Por favor, insira seu nome.",
-                });
-                return;
-            }
+      if (!name) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Por favor, insira seu nome.",
+        });
+        return;
+      }
 
-            if (password !== confirmPassword) {
-                toast({
-                    variant: "destructive",
-                    title: "Erro",
-                    description: "As senhas não coincidem.",
-                });
-                return;
-            }
+      if (password !== confirmPassword) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "As senhas não coincidem.",
+        });
+        return;
+      }
+    }
+
+    try {
+      if (isRegistering) {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        if (user) {
+          // Create a user document in Firestore
+          await setDoc(doc(db, "users", user.uid), {
+            name: name,
+            email: email,
+            saldo: 0, // Initial balance
+            isAdmin: false, // Set admin status
+            createdAt: new Date().toISOString(), // Save account creation date
+          });
+
+          toast({
+            title: "Conta criada com sucesso!",
+            description: "Redirecionando para o painel...",
+          });
+
+          router.push("/dashboard");
         }
-
-        try {
-            if (isRegistering) {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-
-                if (user) {
-                    // Create a user document in Firestore
-                    await setDoc(doc(db, "users", user.uid), {
-                        name: name,
-                        email: email,
-                        saldo: 0, // Initial balance
-                        isAdmin: false, // Set admin status
-                        createdAt: new Date().toISOString(), // Save account creation date
-                    });
-
-                    toast({
-                        title: "Conta criada com sucesso!",
-                        description: "Redirecionando para o painel...",
-                    });
-
-                    router.push("/dashboard");
-                }
-            } else {
-                await signInWithEmailAndPassword(auth, email, password);
-                toast({
-                    title: "Login realizado com sucesso!",
-                    description: "Redirecionando para o painel...",
-                });
-                router.push("/dashboard");
-            }
-        } catch (error: any) {
-            console.error("Erro:", error);
-            let errorMessage = "Erro ao realizar a operação";
-            if (error.code === 'auth/email-already-in-use') {
-                errorMessage = "Este email já está em uso. Por favor, use um email diferente ou faça login.";
-            } else if (error.code === 'auth/invalid-credential') {
-                errorMessage = "Credenciais inválidas. Verifique seu email e senha.";
-                setPassword(""); // Clear the password field
-            }
-            toast({
-                variant: "destructive",
-                title: "Erro ao realizar a operação",
-                description: errorMessage,
-            });
-        }
-    };
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Redirecionando para o painel...",
+        });
+        router.push("/dashboard");
+      }
+    } catch (error: any) {
+      console.error("Erro:", error);
+      let errorMessage = "Erro ao realizar a operação";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Este email já está em uso. Por favor, use um email diferente ou faça login.";
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = "Credenciais inválidas. Verifique seu email e senha.";
+        setPassword(""); // Clear the password field
+      }
+      toast({
+        variant: "destructive",
+        title: "Erro ao realizar a operação",
+        description: errorMessage,
+      });
+    }
+  };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-secondary">
-      <Card className="w-96">
+    <div className="relative flex items-center justify-center h-screen" style={{
+      backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+    }}>
+      <video
+        src="https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm"
+        autoPlay
+        loop
+        muted
+        className="absolute top-0 left-0 w-full h-full object-cover z-0"
+      />
+      <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
+      <Card className="w-96 z-20 max-w-md">
         <CardHeader className="space-y-1">
+         <div className="flex justify-center items-center py-4">
+            <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
+             Zaca Bank
+            </h1>
+         </div>
           <CardTitle>{isRegistering ? "Criar Conta" : "Entrar"}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 main-content">
           <form onSubmit={handleSubmit}>
             {isRegistering && (
               <div className="grid gap-2">
@@ -147,17 +166,17 @@ export default function Home() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-             {isRegistering && (
-                            <div className="grid gap-2">
-                                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-                                <Input
-                                    id="confirmPassword"
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                />
-                            </div>
-                        )}
+            {isRegistering && (
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+            )}
             <Button type="submit" className="w-full mt-4">
               {isRegistering ? "Criar Conta" : "Entrar"}
             </Button>

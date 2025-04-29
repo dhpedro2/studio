@@ -31,6 +31,8 @@ import {
   } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import '@/app/globals.css';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -66,9 +68,13 @@ export default function Profile() {
   const db = getFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let unsubscribe;
+
     const loadTransactions = async () => {
+      setLoading(true);
       if (!auth.currentUser) {
         return;
       }
@@ -86,7 +92,7 @@ export default function Profile() {
       const transactionsCollection = collection(db, "transactions");
   
       // Query transactions where the user is either the sender OR the recipient
-      const q = query(
+      const sentQuery = query(
         transactionsCollection,
         where("remetente", "==", userId)
       );
@@ -97,7 +103,7 @@ export default function Profile() {
       );
   
       const [sentSnapshot, receivedSnapshot] = await Promise.all([
-        getDocs(q),
+        getDocs(sentQuery),
         getDocs(q2)
       ]);
   
@@ -105,11 +111,16 @@ export default function Profile() {
   
       // Helper function to fetch user name
       const fetchUserName = async (userId: string) => {
-        const userDoc = await getDoc(doc(db, "users", userId));
-        if (userDoc.exists()) {
-          return userDoc.data().name;
+         try {
+          const userDoc = await getDoc(doc(db, "users", userId));
+          if (userDoc.exists()) {
+            return userDoc.data().name;
+          }
+          return "Nome Desconhecido";
+        } catch (error) {
+          console.error("Erro ao buscar nome do usuário:", error);
+          return "Nome Desconhecido";
         }
-        return "Nome Desconhecido";
       };
   
       // Process sent transactions
@@ -158,9 +169,16 @@ export default function Profile() {
         frequency[date] = (frequency[date] || 0) + 1;
       });
       setTransactionFrequency(frequency);
+       setLoading(false);
     };
   
     loadTransactions();
+
+     return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
   }, [auth.currentUser, db]);
 
   const handleLogout = async () => {
@@ -193,63 +211,74 @@ export default function Profile() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
-      {/* Navigation Buttons */}
-      <div className="flex justify-around w-full max-w-md mb-8">
-        <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
-        <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
-        <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
+    <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
+      backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+    }}>
+      <video
+        src="https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm"
+        autoPlay
+        loop
+        muted
+        className="absolute top-0 left-0 w-full h-full object-cover z-0"
+      />
+      <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
+        <div className="flex justify-center items-center py-4">
+        <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
+          Zaca Bank
+        </h1>
       </div>
-      <Separator className="w-full max-w-md mb-8" />
+      {/* Navigation Buttons */}
+        <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
+            <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />{/*Início*/}</Button>
+            <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />{/*Transferências*/}</Button>
+            <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />{/*Histórico*/}</Button>
+            <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />{/*Perfil*/}</Button>
+        </div>
+      <Separator className="w-full max-w-md mb-8 z-20" />
 
-      <Card className="w-96">
+      <Card className="w-96 z-20 max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle>Estatísticas do Perfil</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 main-content">
           <div className="flex items-center space-x-4">
-             <Avatar>
-                <AvatarImage src="https://picsum.photos/500/500" alt="Avatar" />
-                <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
+             <Avatar className="h-12 w-12">
+                 {loading ? (
+                     <Skeleton className="h-10 w-10 rounded-full"/>
+                 ) : (
+                 <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
+                 )}
               </Avatar>
             <div>
               <p className="text-lg font-semibold">
-                Nome: {name || "Carregando..."}
+                Nome: {loading ? <Skeleton width={120} /> : (name || "Carregando...")}
               </p>
               <p className="text-lg font-semibold">
-                Email: {email || "Carregando..."}
+                Email: {loading ? <Skeleton width={160} /> : (email || "Carregando...")}
               </p>
             </div>
+           
+
+            <Button onClick={handleLogout} variant="destructive" className="md:text-sm">
+              <Settings className="mr-2" />
+              Sair
+            </Button>
           </div>
+
           <div>
-            <p className="text-lg font-semibold">
-              Total Transferido: R$ {totalAmountTransferred.toFixed(2)}
-            </p>
+            <h2 className="text-xl font-semibold mt-4">Valor Total Transferido: R$ {loading ? <Skeleton width={100}/> : totalAmountTransferred.toFixed(2)}</h2>
           </div>
+
           <div>
-            <p className="text-lg font-semibold">
-              Número de Transações: {transactions.length}
-            </p>
-          </div>
-          {createdAt && (
-              <div>
-                <p className="text-lg font-semibold">
-                  Conta criada em: {format(new Date(createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                </p>
-              </div>
-            )}
-          <div>
+            <h2 className="text-xl font-semibold mt-4">Frequência de Transações</h2>
+            {loading ? (
+                <Skeleton className="w-full h-32"/>
+            ) : chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={chartData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
+                <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -258,14 +287,13 @@ export default function Profile() {
                   <Bar dataKey="count" fill="#8884d8" />
                 </BarChart>
               </ResponsiveContainer>
+            ) : (
+              <p>Nenhuma transação encontrada para exibir o gráfico.</p>
+            )}
           </div>
-          <div className="flex flex-col space-y-2">
-             <Button variant="destructive" onClick={handleLogout}>
-                Sair
-             </Button>
-           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+

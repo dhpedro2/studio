@@ -35,6 +35,8 @@ import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User } from 'lucide-react';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Skeleton } from "@/components/ui/skeleton";
+import '@/app/globals.css';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBNjKB65JN5GoHvG75rG9zaeKAtkDJilxA",
@@ -65,6 +67,7 @@ export default function Transfer() {
   const [saldo, setSaldo] = useState<number | null>(null);
   const [insufficientBalanceOpen, setInsufficientBalanceOpen] = useState(false);
   const [sameAccountOpen, setSameAccountOpen] = useState(false);
+  const [loadingSaldo, setLoadingSaldo] = useState(true);
 
   // Store recipient info for use in success message
   const [successDestinatarioNome, setSuccessDestinatarioNome] = useState("");
@@ -99,6 +102,7 @@ export default function Transfer() {
 
   useEffect(() => {
     const loadSaldo = async () => {
+      setLoadingSaldo(true);
       if (auth.currentUser) {
         const userDocRef = doc(db, "users", auth.currentUser.uid);
         const userDoc = await getDoc(userDocRef);
@@ -109,6 +113,7 @@ export default function Transfer() {
           setSaldo(0);
         }
       }
+      setLoadingSaldo(false);
     };
 
     loadSaldo();
@@ -208,16 +213,6 @@ export default function Transfer() {
         const destinatarioDoc = querySnapshot.docs[0];
         const destinatarioDocRef = doc(db, "users", destinatarioDoc.id);
 
-        // Check if sender and receiver are the same
-        if (userId === destinatarioDoc.id) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Você não pode transferir para sua própria conta.",
-          });
-          return;
-        }
-
         // Get sender and receiver data
         const remetenteDoc = await getDoc(remetenteDocRef);
         const destinatarioDocSnap = await getDoc(destinatarioDocRef);
@@ -293,24 +288,42 @@ export default function Transfer() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-secondary py-8">
-      {/* Navigation Buttons */}
-      <div className="flex justify-around w-full max-w-md mb-8">
-        <Button onClick={() => router.push("/dashboard")} variant="ghost"><Home className="mr-2" />Início</Button>
-        <Button onClick={() => router.push("/transfer")} variant="ghost"><Wallet className="mr-2" />Transferências</Button>
-        <Button onClick={() => router.push("/history")} variant="ghost"><Clock className="mr-2" />Histórico</Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost"><User className="mr-2" />Perfil</Button>
+    <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
+      backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+    }}>
+      <video
+        src="https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm"
+        autoPlay
+        loop
+        muted
+        className="absolute top-0 left-0 w-full h-full object-cover z-0"
+      />
+      <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
+        <div className="flex justify-center items-center py-4">
+        <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
+          Zaca Bank
+        </h1>
       </div>
-      <Separator className="w-full max-w-md mb-8" />
+      {/* Navigation Buttons */}
+        <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
+            <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" />{/*Início*/}</Button>
+            <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" />{/*Transferências*/}</Button>
+            <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" />{/*Histórico*/}</Button>
+            <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" />{/*Perfil*/}</Button>
+        </div>
+      <Separator className="w-full max-w-md mb-8 z-20" />
 
-      <Card className="w-96">
+      <Card className="w-96 z-20 max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle>Realizar Transferência</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div>
+        <CardContent className="grid gap-4 main-content">
+           <div>
             <p className="text-lg font-semibold">
-              Saldo Atual: R$ {saldo !== null ? saldo.toFixed(2) : "Carregando..."}
+              Saldo Atual: R$ {loadingSaldo ? <Skeleton width={100}/> : (saldo !== null ? saldo.toFixed(2) : "Carregando...")}
             </p>
           </div>
           <div className="grid gap-2">
@@ -334,7 +347,7 @@ export default function Transfer() {
             />
           </div>
            
-          <Button onClick={handleTransfer}>Transferir</Button>
+          <Button onClick={handleTransfer} className="md:text-sm">Transferir</Button>
 
           <AlertDialog open={open} onOpenChange={setOpen}>
             <AlertDialogContent>
@@ -402,3 +415,4 @@ export default function Transfer() {
     </div>
   );
 }
+
