@@ -2,6 +2,7 @@
  * Represents a bank account.
  */
 export interface BankAccount {
+
   /**
    * The account number.
    */
@@ -14,6 +15,21 @@ export interface BankAccount {
    * The current balance.
    */
   balance: number;
+}
+
+export interface YieldDataPoint {
+  date: string;
+  yield: number;
+}
+
+const dailyYieldData: YieldDataPoint[] = [];
+
+
+/**
+ * The annual interest rate for the "caixinha" (savings box) in decimal form.
+ */
+const ANNUAL_INTEREST_RATE = 0.14; // 14%
+const WORKING_DAYS = 252; // Approximately 252 working days in a year in Brazil
 }
 
 /**
@@ -44,4 +60,41 @@ export async function transferFunds(fromAccountNumber: string, toAccountNumber: 
   // TODO: Implement this by calling an API.
 
   return true;
+}
+
+
+/**
+ * Calculates the daily yield for the "caixinha" (savings box) based on compound interest.
+ *
+ * @param currentBalance The current balance in the "caixinha".
+ * @returns The daily yield amount.
+ */
+export function calculateDailyYield(currentBalance: number): number {
+  const dailyInterestRate = ANNUAL_INTEREST_RATE / WORKING_DAYS;
+  const dailyYield = currentBalance * dailyInterestRate;
+  
+  const lastYieldData = dailyYieldData[dailyYieldData.length - 1];
+
+  // If there's previous data, add the yield to the last balance to calculate compound interest
+  if (lastYieldData) {
+    const lastBalance = lastYieldData.balance
+    const newDailyYield = (lastBalance + dailyYield) * dailyInterestRate;
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in 'YYYY-MM-DD' format
+    dailyYieldData.push({ date: today, yield: newDailyYield, balance: lastBalance + newDailyYield});
+    return newDailyYield;
+  } else{
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in 'YYYY-MM-DD' format
+    dailyYieldData.push({ date: today, yield: dailyYield, balance: currentBalance + dailyYield});
+    return dailyYield;
+  }
+  
+}
+
+/**
+ * Retrieves the yield data for the "caixinha" (savings box).
+ *
+ * @returns An array of yield data points.
+ */
+export function getYieldData(): YieldDataPoint[] {
+  return dailyYieldData.map(item => ({ date: item.date, yield: item.yield }));
 }
