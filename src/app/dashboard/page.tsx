@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc, onSnapshot, updateDoc, collection, query, getDocs, where, addDoc, Timestamp } from "firebase/firestore";
@@ -49,7 +49,7 @@ const app = initializeApp(firebaseConfig);
 const BANK_ADMIN_USER_ID = "ZACA_BANK_ADMIN_SYSTEM";
 
 interface CaixinhaYield {
-    date: string; // Store as 'yyyy-MM-dd' string
+    date: string; 
     yieldAmount: number;
     userPortion: number;
     bankPortion: number;
@@ -59,7 +59,7 @@ export default function Dashboard() {
     const [saldo, setSaldo] = useState<number | null>(null);
     const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
     const [caixinhaYieldHistory, setCaixinhaYieldHistory] = useState<CaixinhaYield[]>([]);
-    const [lastYieldDate, setLastYieldDate] = useState<Date | null>(null); // Storing as Date object for calculations
+    const [lastYieldDate, setLastYieldDate] = useState<Date | null>(null); 
     const [loadingSaldo, setLoadingSaldo] = useState<boolean>(true);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const [users, setUsers] = useState<any[]>([]);
@@ -67,7 +67,7 @@ export default function Dashboard() {
     const [addRemoveAmount, setAddRemoveAmount] = useState<string>("");
     const [isAdding, setIsAdding] = useState<boolean>(true);
     const [selectedBalanceType, setSelectedBalanceType] = useState<"saldo" | "saldoCaixinha">("saldo");
-    const router = useRouter();
+    const [router, useRouter] = useState(useRouter());
     const { toast } = useToast();
     const [isCaixinhaModalOpen, setIsCaixinhaModalOpen] = useState(false);
     const [caixinhaActionValue, setCaixinhaActionValue] = useState<string>("");
@@ -78,25 +78,36 @@ export default function Dashboard() {
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    const saldoCaixinhaRef = useRef(saldoCaixinha);
+    const lastYieldDateRef = useRef(lastYieldDate);
+
+    useEffect(() => {
+        saldoCaixinhaRef.current = saldoCaixinha;
+    }, [saldoCaixinha]);
+
+    useEffect(() => {
+        lastYieldDateRef.current = lastYieldDate;
+    }, [lastYieldDate]);
+
     const calculateDailyYield = useCallback(async (userId: string, currentCaixinhaBalance: number, currentLastYieldDate: Date | null) => {
         if (currentCaixinhaBalance <= 0) return;
 
         const ANNUAL_INTEREST_RATE = 0.14;
         const WORKING_DAYS_IN_YEAR = 252;
         const DAILY_RATE = ANNUAL_INTEREST_RATE / WORKING_DAYS_IN_YEAR;
-        const BANK_EMAIL = "dhpedro@duck.com"; // Not used for transfer, just for record.
+        // const BANK_EMAIL = "dhpedro@duck.com"; // Not used for transfer, just for record.
 
-        let processingDate = currentLastYieldDate ? addDays(startOfDay(currentLastYieldDate), 1) : subDays(new Date(), 7); // Start from day after last yield or 7 days ago
+        let processingDate = currentLastYieldDate ? addDays(startOfDay(currentLastYieldDate), 1) : subDays(startOfDay(new Date()), 7); 
         const today = startOfDay(new Date());
         let newBalance = currentCaixinhaBalance;
-        let updatedLastYieldDate = currentLastYieldDate;
+        let updatedLastYieldDate = currentLastYieldDate ? startOfDay(currentLastYieldDate) : null;
         const newYieldHistoryEntries: CaixinhaYield[] = [];
 
         while (startOfDay(processingDate) <= today) {
             if (!isWeekend(processingDate)) {
                 const dailyYield = newBalance * DAILY_RATE;
                 const bankPortion = dailyYield * 0.01;
-                const userPortion = dailyYield - bankPortion; // User gets 99%
+                const userPortion = dailyYield - bankPortion; 
                 newBalance += userPortion;
 
                 newYieldHistoryEntries.push({
@@ -114,23 +125,22 @@ export default function Dashboard() {
             try {
                 const userDocRef = doc(db, "users", userId);
                 const userDocSnap = await getDoc(userDocRef);
-                const existingHistory = userDocSnap.data()?.caixinhaYieldHistory || [];
+                const existingHistory = userDocSnap.exists() ? userDocSnap.data().caixinhaYieldHistory || [] : [];
                 
                 const updatedHistory = [...existingHistory, ...newYieldHistoryEntries];
-                // Sort history by date just in case and keep only unique entries by date
-                const uniqueHistory = Array.from(new Map(updatedHistory.map(item => [item.date, item])).values())
+                
+                const uniqueHistoryMap = new Map<string, CaixinhaYield>();
+                updatedHistory.forEach(item => uniqueHistoryMap.set(item.date, item));
+                const uniqueHistory = Array.from(uniqueHistoryMap.values())
                                          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
 
                 await updateDoc(userDocRef, {
                     saldoCaixinha: newBalance,
-                    lastYieldDate: Timestamp.fromDate(updatedLastYieldDate), // Store as Firestore Timestamp
+                    lastYieldDate: Timestamp.fromDate(updatedLastYieldDate), 
                     caixinhaYieldHistory: uniqueHistory
                 });
-
-                setSaldoCaixinha(newBalance);
-                setLastYieldDate(updatedLastYieldDate);
-                setCaixinhaYieldHistory(uniqueHistory.slice(-30));
+                // State updates will be handled by onSnapshot
             } catch (error) {
                 console.error("Error updating yield:", error);
                 toast({ variant: "destructive", title: "Erro ao calcular rendimento", description: (error as Error).message });
@@ -147,10 +157,12 @@ export default function Dashboard() {
 
             if (docSnap.exists()) {
                 const data = docSnap.data();
+                // Initial state setting from fetched data
                 setSaldo(data.saldo || 0);
-                setSaldoCaixinha(data.saldoCaixinha || 0);
+                const initialSaldoCaixinha = data.saldoCaixinha || 0;
+                setSaldoCaixinha(initialSaldoCaixinha);
+                saldoCaixinhaRef.current = initialSaldoCaixinha;
                 
-                // Handle lastYieldDate conversion from Firestore Timestamp
                 const lastYieldTimestamp = data.lastYieldDate;
                 let loadedLastYieldDate: Date | null = null;
                 if (lastYieldTimestamp && typeof (lastYieldTimestamp as any).toDate === 'function') {
@@ -159,11 +171,14 @@ export default function Dashboard() {
                     loadedLastYieldDate = lastYieldTimestamp;
                 }
                 setLastYieldDate(loadedLastYieldDate);
+                lastYieldDateRef.current = loadedLastYieldDate;
 
                 const historyFromDb = data.caixinhaYieldHistory || [];
-                setCaixinhaYieldHistory(historyFromDb.slice(-30)); // Show last 30 days for chart
+                setCaixinhaYieldHistory(historyFromDb.slice(-30)); 
 
-                await calculateDailyYield(userId, data.saldoCaixinha || 0, loadedLastYieldDate);
+                if (initialSaldoCaixinha > 0) {
+                    await calculateDailyYield(userId, initialSaldoCaixinha, loadedLastYieldDate);
+                }
             } else {
                 console.log("No such document for user balance!");
                 router.push("/");
@@ -180,7 +195,7 @@ export default function Dashboard() {
         } finally {
             setLoadingSaldo(false);
         }
-    }, [db, router, toast, calculateDailyYield]);
+    }, [db, router, toast, calculateDailyYield]); // calculateDailyYield is stable due to its own useCallback
 
     const fetchAdminBalances = useCallback(async (userIdToFetch: string) => {
         if (!userIdToFetch) return;
@@ -207,6 +222,7 @@ export default function Dashboard() {
     }, [db, toast]);
 
     const fetchUsers = useCallback(async () => {
+        // isAdmin state is used here, so it's a dependency
         if (isAdmin) {
             try {
                 const usersCollection = collection(db, "users");
@@ -224,13 +240,13 @@ export default function Dashboard() {
     }, [db, toast, isAdmin]);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 const userDocRef = doc(db, "users", user.uid);
                 
-                // Initial fetch and admin check
-                const userDocSnap = await getDoc(userDocRef);
-                if (!userDocSnap.exists()) {
+                // Initial fetch to check admin status and load balance
+                const initialUserDocSnap = await getDoc(userDocRef);
+                if (!initialUserDocSnap.exists()) {
                     router.push("/");
                     toast({
                         variant: "destructive",
@@ -240,20 +256,28 @@ export default function Dashboard() {
                     return;
                 }
                 
-                const userData = userDocSnap.data();
-                setIsAdmin(userData.isAdmin || false);
-                await fetchUserBalance(user.uid); // Ensure this completes before admin-specific fetches
+                const initialUserData = initialUserDocSnap.data();
+                const currentIsAdmin = initialUserData.isAdmin || false;
+                setIsAdmin(currentIsAdmin); // Set admin state
                 
-                if (userData.isAdmin) {
-                    fetchUsers();
+                await fetchUserBalance(user.uid); // This will also trigger initial yield calc if needed
+                
+                if (currentIsAdmin) {
+                    fetchUsers(); // fetchUsers depends on isAdmin state, which is now set
                 }
 
                 // Real-time listener for user data
                 const unsubSnapshot = onSnapshot(userDocRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
+                        
+                        const prevSaldoCaixinhaState = saldoCaixinhaRef.current;
+                        const prevLastYieldDateState = lastYieldDateRef.current;
+
                         setSaldo(data.saldo || 0);
-                        setSaldoCaixinha(data.saldoCaixinha || 0);
+                        const newSaldoCaixinhaFromDb = data.saldoCaixinha || 0;
+                        setSaldoCaixinha(newSaldoCaixinhaFromDb);
+
                         const lastYieldTimestamp = data.lastYieldDate;
                         let newLastYieldDate: Date | null = null;
                         if (lastYieldTimestamp && typeof (lastYieldTimestamp as any).toDate === 'function') {
@@ -261,29 +285,45 @@ export default function Dashboard() {
                         } else if (lastYieldTimestamp instanceof Date) {
                            newLastYieldDate = lastYieldTimestamp;
                         }
+                        setLastYieldDate(newLastYieldDate);
                         
-                        // Check if lastYieldDate has actually changed to avoid re-running calculation unnecessarily
-                        if (newLastYieldDate?.getTime() !== lastYieldDate?.getTime()) {
-                           setLastYieldDate(newLastYieldDate);
-                           // Optionally re-calculate yield if lastYieldDate changes from another source,
-                           // though calculateDailyYield is designed to catch up.
-                        }
                         const historyFromDb = data.caixinhaYieldHistory || [];
                         setCaixinhaYieldHistory(historyFromDb.slice(-30));
+
+                        // Update refs after state updates
+                        saldoCaixinhaRef.current = newSaldoCaixinhaFromDb;
+                        lastYieldDateRef.current = newLastYieldDate;
+
+                        const caixinhaBalanceChangedInDb = newSaldoCaixinhaFromDb !== prevSaldoCaixinhaState;
+                        const yieldDateChangedInDb = newLastYieldDate?.getTime() !== prevLastYieldDateState?.getTime();
+
+                        if (newSaldoCaixinhaFromDb > 0 && (yieldDateChangedInDb || caixinhaBalanceChangedInDb)) {
+                            calculateDailyYield(user.uid, newSaldoCaixinhaFromDb, newLastYieldDate);
+                        }
+
+                        // Update isAdmin state if it changes in Firestore
+                        const newIsAdminFromSnapshot = data.isAdmin || false;
+                        if (newIsAdminFromSnapshot !== isAdmin) { // Compare with current isAdmin state
+                           setIsAdmin(newIsAdminFromSnapshot);
+                           // If fetchUsers itself depends on isAdmin state, it will be re-created
+                           // and this effect will re-run due to fetchUsers changing, or call it directly:
+                           if (newIsAdminFromSnapshot) fetchUsers(); else setUsers([]); // Clear users if no longer admin
+                        }
+
                     } else {
-                         // This case might indicate the user was deleted while active
                         router.push("/");
                         toast({ variant: "destructive", title: "Usuário não encontrado", description: "Sua sessão pode ter sido invalidada."});
                     }
                 });
-                return () => unsubSnapshot(); // Cleanup snapshot listener
+                return () => unsubSnapshot(); 
             } else {
                 router.push("/");
             }
         });
 
-        return () => unsubscribe(); // Cleanup auth listener
-    }, [auth, db, router, fetchUserBalance, fetchUsers, toast, lastYieldDate]);
+        return () => unsubscribeAuth(); 
+    }, [auth, db, router, fetchUserBalance, fetchUsers, toast, calculateDailyYield, isAdmin]); // isAdmin is a dependency because fetchUsers depends on it.
+
 
     const handleCaixinhaAction = async () => {
         if (!auth.currentUser || !caixinhaActionValue) return;
@@ -301,7 +341,8 @@ export default function Dashboard() {
 
             let currentSaldo = userDoc.data().saldo || 0;
             let currentSaldoCaixinha = userDoc.data().saldoCaixinha || 0;
-            let newLastYieldDate = lastYieldDate; // Keep current if no yield calculation needed
+            let currentLastYieldDate = userDoc.data().lastYieldDate ? (userDoc.data().lastYieldDate as Timestamp).toDate() : null;
+
 
             if (selectedCaixinhaAction === "adicionar") {
                 if (currentSaldo < value) {
@@ -310,9 +351,9 @@ export default function Dashboard() {
                 }
                 currentSaldo -= value;
                 currentSaldoCaixinha += value;
-                // If adding to an empty caixinha or after a while, ensure lastYieldDate is recent enough for yield calculation
-                if(currentSaldoCaixinha - value === 0 || !lastYieldDate) { // if was 0 or no last yield date
-                    newLastYieldDate = subDays(new Date(),1); // set to yesterday to trigger today's yield calc
+                // If adding to an empty caixinha or no yield date, set lastYieldDate to yesterday to trigger today's yield.
+                if( (userDoc.data().saldoCaixinha || 0) === 0 || !currentLastYieldDate) { 
+                    currentLastYieldDate = subDays(startOfDay(new Date()),1); 
                 }
 
             } else if (selectedCaixinhaAction === "retirar") {
@@ -328,10 +369,11 @@ export default function Dashboard() {
                 saldo: currentSaldo,
                 saldoCaixinha: currentSaldoCaixinha,
             };
-
-            if (newLastYieldDate && newLastYieldDate !== lastYieldDate) {
-                 updateData.lastYieldDate = Timestamp.fromDate(newLastYieldDate);
+            // If we adjusted lastYieldDate (e.g. for a new deposit into empty caixinha)
+            if(currentLastYieldDate && currentLastYieldDate.getTime() !== (userDoc.data().lastYieldDate ? (userDoc.data().lastYieldDate as Timestamp).toDate().getTime() : null) ) {
+                 updateData.lastYieldDate = Timestamp.fromDate(currentLastYieldDate);
             }
+
 
             await updateDoc(userDocRef, updateData);
 
@@ -339,10 +381,7 @@ export default function Dashboard() {
             
             setCaixinhaActionValue("");
             setIsCaixinhaModalOpen(false);
-            // Trigger yield calculation if balance or date changed
-            await calculateDailyYield(auth.currentUser.uid, currentSaldoCaixinha, newLastYieldDate);
-
-
+            // Firestore update will trigger onSnapshot, which in turn calls calculateDailyYield if needed.
         } catch (error: any) {
             toast({ variant: "destructive", title: "Erro", description: `Erro na operação da Caixinha: ${error.message}` });
         }
@@ -367,7 +406,7 @@ export default function Dashboard() {
                 return;
             }
 
-            const currentBalanceField = selectedBalanceType; // "saldo" or "saldoCaixinha"
+            const currentBalanceField = selectedBalanceType; 
             const currentBalanceValue = userDoc.data()[currentBalanceField] || 0;
             
             let newBalance;
@@ -384,9 +423,11 @@ export default function Dashboard() {
             await updateDoc(userDocRef, { [currentBalanceField]: newBalance });
 
             const transactionData: any = {
-                data: new Date().toISOString(),
+                data: Timestamp.now(), // Use Firestore Timestamp for date
                 valor: value,
                 adminAction: true, 
+                remetenteNome: "Banco", // For display purposes
+                destinatarioNome: users.find(u => u.id === selectedUserId)?.name || "Usuário", // For display
             };
 
             if (isAdding) {
@@ -403,15 +444,18 @@ export default function Dashboard() {
 
             toast({ title: "Sucesso", description: `Saldo ${isAdding ? "adicionado" : "removido"} com sucesso.` });
             setAddRemoveAmount("");
-            fetchUsers();
-            fetchAdminBalances(selectedUserId);
+            // fetchUsers(); // Firestore onSnapshot for users collection or specific user doc should update this.
+                         // Or, if users state isn't reactive this way, call fetchUsers.
+                         // For admin panel, user list doesn't need to be super real-time, so manual refresh is ok.
+            if(isAdmin) fetchUsers(); 
+            fetchAdminBalances(selectedUserId); // Refresh the displayed balances for the selected user
         } catch (error: any) {
             toast({ variant: "destructive", title: "Erro", description: `Erro ao adicionar/remover saldo: ${error.message}` });
         }
     };
     
     const chartData = caixinhaYieldHistory.map(item => ({
-        name: format(parseISO(item.date), 'dd/MM'), // Ensure item.date is correctly formatted string 'yyyy-MM-dd'
+        name: item.date ? format(parseISO(item.date), 'dd/MM') : 'N/A', 
         Rendimento: parseFloat(item.userPortion.toFixed(2)),
     }));
 
@@ -509,7 +553,8 @@ export default function Dashboard() {
                     <Separator />
                     <div className="mt-4">
                         <h3 className="text-lg font-semibold mb-2">Histórico de Rendimentos (Últimos 30 dias)</h3>
-                        {chartData.length > 0 ? (
+                        {loadingSaldo ? <Skeleton className="w-full h-[200px]" /> :
+                         chartData.length > 0 ? (
                              <ResponsiveContainer width="100%" height={200}>
                                 <LineChart data={chartData}>
                                     <CartesianGrid strokeDasharray="3 3" />
@@ -605,6 +650,6 @@ export default function Dashboard() {
             )}
         </div>
     );
-}
+
 
 
