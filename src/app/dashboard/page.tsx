@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, getDoc, onSnapshot, updateDoc, collection, query, getDocs, where, addDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, onSnapshot, updateDoc, collection, query, getDocs, where, addDoc, Timestamp } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -22,16 +22,14 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    BarChart,
-    Bar,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     Legend,
     ResponsiveContainer,
-    LineChart,
-    Line,
 } from 'recharts';
 import { addDays, format, isSameDay, isWeekend, parseISO, startOfDay, subDays } from 'date-fns';
 
@@ -51,7 +49,7 @@ const app = initializeApp(firebaseConfig);
 const BANK_ADMIN_USER_ID = "ZACA_BANK_ADMIN_SYSTEM";
 
 interface CaixinhaYield {
-    date: string;
+    date: string; // Store as 'yyyy-MM-dd' string
     yieldAmount: number;
     userPortion: number;
     bankPortion: number;
@@ -61,7 +59,7 @@ export default function Dashboard() {
     const [saldo, setSaldo] = useState<number | null>(null);
     const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
     const [caixinhaYieldHistory, setCaixinhaYieldHistory] = useState<CaixinhaYield[]>([]);
-    const [lastYieldDate, setLastYieldDate] = useState<Date | null>(null);
+    const [lastYieldDate, setLastYieldDate] = useState<Date | null>(null); // Storing as Date object for calculations
     const [loadingSaldo, setLoadingSaldo] = useState<boolean>(true);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const [users, setUsers] = useState<any[]>([]);
@@ -86,76 +84,95 @@ export default function Dashboard() {
         const ANNUAL_INTEREST_RATE = 0.14;
         const WORKING_DAYS_IN_YEAR = 252;
         const DAILY_RATE = ANNUAL_INTEREST_RATE / WORKING_DAYS_IN_YEAR;
-        const BANK_EMAIL = "dhpedro@duck.com";
+        const BANK_EMAIL = "dhpedro@duck.com"; // Not used for transfer, just for record.
 
-        let processingDate = currentLastYieldDate ? addDays(currentLastYieldDate, 1) : subDays(new Date(), 7); // Start from last yield or 7 days ago
+        let processingDate = currentLastYieldDate ? addDays(startOfDay(currentLastYieldDate), 1) : subDays(new Date(), 7); // Start from day after last yield or 7 days ago
         const today = startOfDay(new Date());
         let newBalance = currentCaixinhaBalance;
         let updatedLastYieldDate = currentLastYieldDate;
-        const newYieldHistory: CaixinhaYield[] = [];
+        const newYieldHistoryEntries: CaixinhaYield[] = [];
 
         while (startOfDay(processingDate) <= today) {
-            if (!isWeekend(processingDate)) { // Consider only working days
+            if (!isWeekend(processingDate)) {
                 const dailyYield = newBalance * DAILY_RATE;
                 const bankPortion = dailyYield * 0.01;
-                const userPortion = dailyYield * 0.99;
+                const userPortion = dailyYield - bankPortion; // User gets 99%
                 newBalance += userPortion;
 
-                newYieldHistory.push({
+                newYieldHistoryEntries.push({
                     date: format(processingDate, 'yyyy-MM-dd'),
                     yieldAmount: dailyYield,
                     userPortion,
                     bankPortion,
                 });
-
-                // Transfer bank portion (conceptual, actual transfer logic needed)
-                // For now, we just record it.
-                console.log(`Transferring Ƶ${bankPortion.toFixed(2)} to ${BANK_EMAIL} on ${format(processingDate, 'yyyy-MM-dd')}`);
                 updatedLastYieldDate = startOfDay(processingDate);
             }
             processingDate = addDays(processingDate, 1);
         }
 
-        if (newYieldHistory.length > 0 && updatedLastYieldDate) {
+        if (newYieldHistoryEntries.length > 0 && updatedLastYieldDate) {
             try {
                 const userDocRef = doc(db, "users", userId);
+                const userDocSnap = await getDoc(userDocRef);
+                const existingHistory = userDocSnap.data()?.caixinhaYieldHistory || [];
+                
+                const updatedHistory = [...existingHistory, ...newYieldHistoryEntries];
+                // Sort history by date just in case and keep only unique entries by date
+                const uniqueHistory = Array.from(new Map(updatedHistory.map(item => [item.date, item])).values())
+                                         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+
                 await updateDoc(userDocRef, {
                     saldoCaixinha: newBalance,
-                    lastYieldDate: updatedLastYieldDate.toISOString(), // Store as ISO string
-                    caixinhaYieldHistory: [...( (await getDoc(userDocRef)).data()?.caixinhaYieldHistory || []), ...newYieldHistory] // Append to existing history
+                    lastYieldDate: Timestamp.fromDate(updatedLastYieldDate), // Store as Firestore Timestamp
+                    caixinhaYieldHistory: uniqueHistory
                 });
+
                 setSaldoCaixinha(newBalance);
                 setLastYieldDate(updatedLastYieldDate);
-                setCaixinhaYieldHistory(prev => [...prev, ...newYieldHistory].slice(-30)); // Keep last 30 days for chart
+                setCaixinhaYieldHistory(uniqueHistory.slice(-30));
             } catch (error) {
                 console.error("Error updating yield:", error);
+                toast({ variant: "destructive", title: "Erro ao calcular rendimento", description: (error as Error).message });
             }
         }
-    }, [db]);
+    }, [db, toast]);
 
 
     const fetchUserBalance = useCallback(async (userId: string) => {
+        setLoadingSaldo(true);
         const userDocRef = doc(db, "users", userId);
-        const docSnap = await getDoc(userDocRef);
+        try {
+            const docSnap = await getDoc(userDocRef);
 
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            setSaldo(data.saldo || 0);
-            setSaldoCaixinha(data.saldoCaixinha || 0);
-            const lastYieldDateStr = data.lastYieldDate;
-            const loadedLastYieldDate = lastYieldDateStr ? parseISO(lastYieldDateStr) : null;
-            setLastYieldDate(loadedLastYieldDate);
-            setCaixinhaYieldHistory(data.caixinhaYieldHistory || []);
-            setLoadingSaldo(false);
-            await calculateDailyYield(userId, data.saldoCaixinha || 0, loadedLastYieldDate);
-        } else {
-            console.log("No such document!");
-            router.push("/"); // Redirect if user document doesn't exist
-            toast({
-                variant: "destructive",
-                title: "Conta não encontrada",
-                description: "Sua conta pode ter sido excluída ou não existe.",
-            });
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setSaldo(data.saldo || 0);
+                setSaldoCaixinha(data.saldoCaixinha || 0);
+                
+                // Handle lastYieldDate conversion from Firestore Timestamp
+                const lastYieldTimestamp = data.lastYieldDate;
+                const loadedLastYieldDate = lastYieldTimestamp ? (lastYieldTimestamp as Timestamp).toDate() : null;
+                setLastYieldDate(loadedLastYieldDate);
+
+                const historyFromDb = data.caixinhaYieldHistory || [];
+                setCaixinhaYieldHistory(historyFromDb.slice(-30)); // Show last 30 days for chart
+
+                await calculateDailyYield(userId, data.saldoCaixinha || 0, loadedLastYieldDate);
+            } else {
+                console.log("No such document for user balance!");
+                router.push("/");
+                toast({
+                    variant: "destructive",
+                    title: "Conta não encontrada",
+                    description: "Sua conta pode ter sido excluída ou não existe.",
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching user balance:", error);
+            toast({ variant: "destructive", title: "Erro ao buscar saldo", description: (error as Error).message });
+            router.push("/");
+        } finally {
             setLoadingSaldo(false);
         }
     }, [db, router, toast, calculateDailyYield]);
@@ -205,8 +222,9 @@ export default function Dashboard() {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 const userDocRef = doc(db, "users", user.uid);
+                
+                // Initial fetch and admin check
                 const userDocSnap = await getDoc(userDocRef);
-
                 if (!userDocSnap.exists()) {
                     router.push("/");
                     toast({
@@ -219,29 +237,43 @@ export default function Dashboard() {
                 
                 const userData = userDocSnap.data();
                 setIsAdmin(userData.isAdmin || false);
-                fetchUserBalance(user.uid);
+                await fetchUserBalance(user.uid); // Ensure this completes before admin-specific fetches
                 
                 if (userData.isAdmin) {
                     fetchUsers();
                 }
 
-                onSnapshot(userDocRef, (docSnap) => {
+                // Real-time listener for user data
+                const unsubSnapshot = onSnapshot(userDocRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         setSaldo(data.saldo || 0);
                         setSaldoCaixinha(data.saldoCaixinha || 0);
-                        const lastYieldDateStr = data.lastYieldDate;
-                        setLastYieldDate(lastYieldDateStr ? parseISO(lastYieldDateStr) : null);
-                        setCaixinhaYieldHistory(data.caixinhaYieldHistory || []);
+                        const lastYieldTimestamp = data.lastYieldDate;
+                        const newLastYieldDate = lastYieldTimestamp ? (lastYieldTimestamp as Timestamp).toDate() : null;
+                        
+                        // Check if lastYieldDate has actually changed to avoid re-running calculation unnecessarily
+                        if (newLastYieldDate?.getTime() !== lastYieldDate?.getTime()) {
+                           setLastYieldDate(newLastYieldDate);
+                           // Optionally re-calculate yield if lastYieldDate changes from another source,
+                           // though calculateDailyYield is designed to catch up.
+                        }
+                        const historyFromDb = data.caixinhaYieldHistory || [];
+                        setCaixinhaYieldHistory(historyFromDb.slice(-30));
+                    } else {
+                         // This case might indicate the user was deleted while active
+                        router.push("/");
+                        toast({ variant: "destructive", title: "Usuário não encontrado", description: "Sua sessão pode ter sido invalidada."});
                     }
                 });
+                return () => unsubSnapshot(); // Cleanup snapshot listener
             } else {
                 router.push("/");
             }
         });
 
-        return () => unsubscribe();
-    }, [auth, db, router, fetchUserBalance, fetchUsers, toast]);
+        return () => unsubscribe(); // Cleanup auth listener
+    }, [auth, db, router, fetchUserBalance, fetchUsers, toast, lastYieldDate]);
 
     const handleCaixinhaAction = async () => {
         if (!auth.currentUser || !caixinhaActionValue) return;
@@ -259,31 +291,47 @@ export default function Dashboard() {
 
             let currentSaldo = userDoc.data().saldo || 0;
             let currentSaldoCaixinha = userDoc.data().saldoCaixinha || 0;
+            let newLastYieldDate = lastYieldDate; // Keep current if no yield calculation needed
 
             if (selectedCaixinhaAction === "adicionar") {
                 if (currentSaldo < value) {
                     toast({ variant: "destructive", title: "Saldo insuficiente", description: "Você não tem saldo suficiente para adicionar à Caixinha." });
                     return;
                 }
-                await updateDoc(userDocRef, {
-                    saldo: currentSaldo - value,
-                    saldoCaixinha: currentSaldoCaixinha + value,
-                });
-                toast({ title: "Sucesso", description: `Ƶ ${value.toFixed(2)} adicionado à Caixinha.` });
+                currentSaldo -= value;
+                currentSaldoCaixinha += value;
+                // If adding to an empty caixinha or after a while, ensure lastYieldDate is recent enough for yield calculation
+                if(currentSaldoCaixinha - value === 0 || !lastYieldDate) { // if was 0 or no last yield date
+                    newLastYieldDate = subDays(new Date(),1); // set to yesterday to trigger today's yield calc
+                }
+
             } else if (selectedCaixinhaAction === "retirar") {
                 if (currentSaldoCaixinha < value) {
                     toast({ variant: "destructive", title: "Saldo insuficiente", description: "Você não tem saldo suficiente para retirar da Caixinha." });
                     return;
                 }
-                await updateDoc(userDocRef, {
-                    saldo: currentSaldo + value,
-                    saldoCaixinha: currentSaldoCaixinha - value,
-                });
-                toast({ title: "Sucesso", description: `Ƶ ${value.toFixed(2)} retirado da Caixinha.` });
+                currentSaldo += value;
+                currentSaldoCaixinha -= value;
             }
+            
+            const updateData: any = {
+                saldo: currentSaldo,
+                saldoCaixinha: currentSaldoCaixinha,
+            };
+
+            if (newLastYieldDate && newLastYieldDate !== lastYieldDate) {
+                 updateData.lastYieldDate = Timestamp.fromDate(newLastYieldDate);
+            }
+
+            await updateDoc(userDocRef, updateData);
+
+            toast({ title: "Sucesso", description: `Ƶ ${value.toFixed(2)} ${selectedCaixinhaAction === "adicionar" ? 'adicionado à' : 'retirado da'} Caixinha.` });
+            
             setCaixinhaActionValue("");
             setIsCaixinhaModalOpen(false);
-            await calculateDailyYield(auth.currentUser.uid, selectedCaixinhaAction === "adicionar" ? currentSaldoCaixinha + value : currentSaldoCaixinha - value, lastYieldDate);
+            // Trigger yield calculation if balance or date changed
+            await calculateDailyYield(auth.currentUser.uid, currentSaldoCaixinha, newLastYieldDate);
+
 
         } catch (error: any) {
             toast({ variant: "destructive", title: "Erro", description: `Erro na operação da Caixinha: ${error.message}` });
@@ -296,7 +344,7 @@ export default function Dashboard() {
             return;
         }
         const value = parseFloat(addRemoveAmount);
-        if (isNaN(value) || value <=0) { // Prevent adding/removing zero or negative
+        if (isNaN(value) || value <=0) { 
             toast({ variant: "destructive", title: "Erro", description: "Por favor, insira um valor numérico positivo válido." });
             return;
         }
@@ -309,35 +357,36 @@ export default function Dashboard() {
                 return;
             }
 
-            const currentBalance = userDoc.data()[selectedBalanceType] || 0;
+            const currentBalanceField = selectedBalanceType; // "saldo" or "saldoCaixinha"
+            const currentBalanceValue = userDoc.data()[currentBalanceField] || 0;
+            
             let newBalance;
             if (isAdding) {
-                newBalance = currentBalance + value;
+                newBalance = currentBalanceValue + value;
             } else {
-                if (currentBalance < value) {
-                    toast({ variant: "destructive", title: "Operação Inválida", description: `Não é possível remover Ƶ${value.toFixed(2)}. Saldo atual do usuário (${selectedBalanceType}) é Ƶ${currentBalance.toFixed(2)}.` });
+                if (currentBalanceValue < value) {
+                    toast({ variant: "destructive", title: "Operação Inválida", description: `Não é possível remover Ƶ${value.toFixed(2)}. Saldo atual do usuário (${selectedBalanceType}) é Ƶ${currentBalanceValue.toFixed(2)}.` });
                     return;
                 }
-                newBalance = currentBalance - value;
+                newBalance = currentBalanceValue - value;
             }
             
-            await updateDoc(userDocRef, { [selectedBalanceType]: newBalance });
+            await updateDoc(userDocRef, { [currentBalanceField]: newBalance });
 
-            // Log transaction for admin action
             const transactionData: any = {
                 data: new Date().toISOString(),
                 valor: value,
-                adminAction: true, // Custom flag for admin actions
+                adminAction: true, 
             };
 
             if (isAdding) {
                 transactionData.remetente = BANK_ADMIN_USER_ID;
                 transactionData.destinatario = selectedUserId;
-                transactionData.tipo = "admin_deposit";
+                transactionData.tipo = `admin_deposit_${selectedBalanceType}`;
             } else {
                 transactionData.remetente = selectedUserId;
                 transactionData.destinatario = BANK_ADMIN_USER_ID;
-                transactionData.tipo = "admin_withdrawal";
+                transactionData.tipo = `admin_withdrawal_${selectedBalanceType}`;
             }
             await addDoc(collection(db, "transactions"), transactionData);
 
@@ -351,8 +400,8 @@ export default function Dashboard() {
         }
     };
     
-    const chartData = caixinhaYieldHistory.slice(-30).map(item => ({
-        name: format(parseISO(item.date), 'dd/MM'),
+    const chartData = caixinhaYieldHistory.map(item => ({
+        name: format(parseISO(item.date), 'dd/MM'), // Ensure item.date is correctly formatted string 'yyyy-MM-dd'
         Rendimento: parseFloat(item.userPortion.toFixed(2)),
     }));
 
@@ -367,7 +416,7 @@ export default function Dashboard() {
                 className="absolute top-0 left-0 w-full h-full object-cover z-0"
             />
             <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10" />
-            <div className="flex justify-center items-center py-4">
+            <div className="flex justify-center items-center py-4 z-20">
                 <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
                     Zaca Bank
                 </h1>
@@ -400,20 +449,20 @@ export default function Dashboard() {
                             <Clock className="mr-2" />
                             Histórico de Transações
                         </Button>
+                         <Button onClick={() => setIsCaixinhaModalOpen(true)} variant="outline">
+                            <PiggyBank className="mr-2" />
+                            Caixinha
+                        </Button>
                         <Button onClick={() => router.push("/profile")} variant="outline">
                             <User className="mr-2" />
                             Perfil
-                        </Button>
-                        <Button onClick={() => setIsCaixinhaModalOpen(true)} variant="outline">
-                            <PiggyBank className="mr-2" />
-                            Caixinha
                         </Button>
                     </div>
                 </CardContent>
             </Card>
 
             <Dialog open={isCaixinhaModalOpen} onOpenChange={setIsCaixinhaModalOpen}>
-                <DialogContent className="sm:max-w-[425px] md:max-w-[600px]">
+                <DialogContent className="sm:max-w-sm md:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-2xl">Caixinha</DialogTitle>
                         <DialogDescription className="text-xl">
@@ -450,7 +499,7 @@ export default function Dashboard() {
                     <Separator />
                     <div className="mt-4">
                         <h3 className="text-lg font-semibold mb-2">Histórico de Rendimentos (Últimos 30 dias)</h3>
-                        {caixinhaYieldHistory.length > 0 ? (
+                        {chartData.length > 0 ? (
                              <ResponsiveContainer width="100%" height={200}>
                                 <LineChart data={chartData}>
                                     <CartesianGrid strokeDasharray="3 3" />
@@ -458,11 +507,11 @@ export default function Dashboard() {
                                     <YAxis />
                                     <Tooltip />
                                     <Legend />
-                                    <Line type="monotone" dataKey="Rendimento" stroke="#8884d8" activeDot={{ r: 8 }} />
+                                    <Line type="monotone" dataKey="Rendimento" stroke="hsl(var(--primary))" activeDot={{ r: 8 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-sm text-muted-foreground">Nenhum rendimento registrado nos últimos 30 dias.</p>
+                            <p className="text-sm text-muted-foreground">Nenhum rendimento registrado nos últimos 30 dias ou saldo insuficiente na caixinha.</p>
                         )}
                     </div>
                     <DialogFooter>
@@ -547,3 +596,4 @@ export default function Dashboard() {
         </div>
     );
 }
+
