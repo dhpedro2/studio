@@ -37,7 +37,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const BANK_ADMIN_USER_ID = "ZACA_BANK_ADMIN_SYSTEM";
+
 
 interface Transaction {
   id: string;
@@ -45,8 +47,9 @@ interface Transaction {
   destinatario: string;
   valor: number;
   data: string;
-  remetenteNome: string;
-  destinatarioNome: string;
+  remetenteNome?: string; // Made optional as it might be "Banco"
+  destinatarioNome?: string; // Made optional as it might be "Banco"
+  adminAction?: boolean; // Flag for admin actions
 }
 
 export default function History() {
@@ -57,118 +60,185 @@ export default function History() {
   const [typeFilter, setTypeFilter] = useState<"entrada" | "saída" | "todos">("todos");
   const [minValue, setMinValue] = useState<number | null>(null);
   const [maxValue, setMaxValue] = useState<number | null>(null);
-  const auth = getAuth();
-  const db = getFirestore();
+  const auth = getAuth(app);
+  const db = getFirestore(app);
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    let unsubscribe;
+    let unsubscribe; // This variable is not used, consider removing or using it for onSnapshot cleanup
     const loadTransactions = async () => {
       setLoading(true);
       if (!auth.currentUser) {
+        setLoading(false);
         return;
       }
 
       const userId = auth.currentUser.uid;
       const transactionsCollection = collection(db, "transactions");
 
+      // Query for transactions where the user is the sender
       const sentQuery = query(
         transactionsCollection,
         where("remetente", "==", userId),
         orderBy("data", "desc")
       );
 
+      // Query for transactions where the user is the recipient
       const receivedQuery = query(
         transactionsCollection,
         where("destinatario", "==", userId),
         orderBy("data", "desc")
       );
+      
+      // Query for admin actions involving the user (either as recipient of deposit or sender of withdrawal)
+      const adminToUserQuery = query(
+        transactionsCollection,
+        where("destinatario", "==", userId),
+        where("adminAction", "==", true),
+        orderBy("data", "desc")
+      );
+      const userToAdminQuery = query(
+        transactionsCollection,
+        where("remetente", "==", userId),
+        where("adminAction", "==", true),
+        orderBy("data", "desc")
+      );
 
-      const [sentSnapshot, receivedSnapshot] = await Promise.all([
-        getDocs(sentQuery),
-        getDocs(receivedQuery)
-      ]);
 
-      const transactionList: Transaction[] = [];
+      try {
+        const [sentSnapshot, receivedSnapshot, adminToUserSnapshot, userToAdminSnapshot] = await Promise.all([
+          getDocs(sentQuery),
+          getDocs(receivedQuery),
+          getDocs(adminToUserQuery),
+          getDocs(userToAdminSnapshot),
+        ]);
 
-      const fetchUserName = async (userId: string) => {
-        try {
-          const userDocRef = doc(db, "users", userId);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            return userDoc.data().name;
+        const transactionList: Transaction[] = [];
+        const processedIds = new Set<string>(); // To avoid duplicate transactions
+
+        const fetchUserName = async (uid: string): Promise<string> => {
+          if (uid === BANK_ADMIN_USER_ID) {
+            return "Banco";
           }
-          return "Nome Desconhecido";
-        } catch (error) {
-          console.error("Erro ao buscar nome do usuário:", error);
-          return "Nome Desconhecido";
+          try {
+            const userDocRef = doc(db, "users", uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              return userDoc.data().name || "Usuário Desconhecido";
+            }
+            return "Usuário Desconhecido";
+          } catch (error) {
+            console.error("Erro ao buscar nome do usuário:", error);
+            return "Erro ao buscar nome";
+          }
+        };
+        
+        const processDoc = async (docSnap: any, isSent: boolean, isAdminAdjustment: boolean = false) => {
+            if (processedIds.has(docSnap.id)) return;
+            processedIds.add(docSnap.id);
+
+            const data = docSnap.data() as Transaction;
+            let remetenteNome = "Você";
+            let destinatarioNome = "Você";
+
+            if (data.adminAction) {
+                if (data.remetente === BANK_ADMIN_USER_ID) { // Admin deposit to user
+                    remetenteNome = "Banco";
+                    destinatarioNome = await fetchUserName(data.destinatario); // Should be current user's name or "Você"
+                } else { // Admin withdrawal from user
+                    remetenteNome = await fetchUserName(data.remetente); // Should be current user's name or "Você"
+                    destinatarioNome = "Banco";
+                }
+            } else {
+                 if (isSent) { // User sent to another user
+                    destinatarioNome = await fetchUserName(data.destinatario);
+                 } else { // User received from another user
+                    remetenteNome = await fetchUserName(data.remetente);
+                 }
+            }
+
+
+            transactionList.push({
+                id: docSnap.id,
+                ...data,
+                remetenteNome,
+                destinatarioNome,
+            });
+        };
+
+
+        // Process normal sent transactions (excluding admin withdrawals initiated by user)
+        for (const docSnap of sentSnapshot.docs) {
+            if (!docSnap.data().adminAction) {
+                 await processDoc(docSnap, true);
+            }
         }
-      };
+        // Process normal received transactions (excluding admin deposits initiated for user)
+        for (const docSnap of receivedSnapshot.docs) {
+             if (!docSnap.data().adminAction) {
+                await processDoc(docSnap, false);
+             }
+        }
+        // Process admin deposits to the user
+        for (const docSnap of adminToUserSnapshot.docs) {
+            await processDoc(docSnap, false, true);
+        }
+        // Process admin withdrawals from the user
+        for (const docSnap of userToAdminSnapshot.docs) {
+            await processDoc(docSnap, true, true);
+        }
 
-      for (const doc of sentSnapshot.docs) {
-        const data = doc.data();
-        const destinatarioNome = await fetchUserName(data.destinatario);
-        transactionList.push({
-          id: doc.id,
-          remetente: data.remetente,
-          destinatario: data.destinatario,
-          valor: data.valor,
-          data: data.data,
-          remetenteNome: "Você",
-          destinatarioNome: destinatarioNome,
+
+        transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
+        setTransactions(transactionList);
+
+      } catch (error: any) {
+        console.error("Error loading transactions:", error);
+        toast({
+          variant: "destructive",
+          title: "Erro ao carregar histórico",
+          description: error.message,
         });
+      } finally {
+        setLoading(false);
       }
-
-      for (const doc of receivedSnapshot.docs) {
-        const data = doc.data();
-        const remetenteNome = await fetchUserName(data.remetente);
-        transactionList.push({
-          id: doc.id,
-          remetente: data.remetente,
-          destinatario: data.destinatario,
-          valor: data.valor,
-          data: data.data,
-          remetenteNome: remetenteNome,
-          destinatarioNome: "Você",
-        });
-      }
-
-      transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
-      setTransactions(transactionList);
-      setLoading(false);
     };
 
     loadTransactions();
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [auth.currentUser, db]);
+    // Cleanup function for onSnapshot if you implement real-time updates later
+    // return () => {
+    //   if (unsubscribe) {
+    //     unsubscribe();
+    //   }
+    // };
+  }, [auth.currentUser, db, toast]);
 
   useEffect(() => {
     let filtered = [...transactions];
 
     if (startDate && endDate) {
+      const inclusiveEndDate = new Date(endDate);
+      inclusiveEndDate.setHours(23, 59, 59, 999); // Make endDate inclusive
       filtered = filtered.filter(transaction => {
         const transactionDate = parseISO(transaction.data);
-        return transactionDate >= startDate && transactionDate <= endDate;
+        return transactionDate >= startDate && transactionDate <= inclusiveEndDate;
       });
     }
 
-    if (typeFilter !== "todos") {
+    if (typeFilter !== "todos" && auth.currentUser) {
       filtered = filtered.filter(transaction => {
         if (typeFilter === "entrada") {
-          return transaction.destinatario === auth.currentUser?.uid;
+          return transaction.destinatario === auth.currentUser!.uid;
         } else if (typeFilter === "saída") {
-          return transaction.remetente === auth.currentUser?.uid;
+          return transaction.remetente === auth.currentUser!.uid;
         }
-        return true;
+        return true; // Should not happen if filter is 'entrada' or 'saída'
       });
     }
+    
 
     if (minValue !== null) {
       filtered = filtered.filter(transaction => transaction.valor >= minValue);
@@ -182,12 +252,7 @@ export default function History() {
   }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, auth.currentUser?.uid]);
 
   return (
-    <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
-      backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
-      backgroundSize: 'cover',
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'fixed',
-    }}>
+    <div className="relative flex flex-col items-center justify-start min-h-screen py-8">
       <video
         src="https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm"
         autoPlay
@@ -203,19 +268,19 @@ export default function History() {
       </div>
       {/* Navigation Buttons */}
       <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
-        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" /></Button>
-        <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" /></Button>
-        <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" /></Button>
-        <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" /></Button>
+        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Início</span></Button>
+        <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Transferências</span></Button>
+        <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Histórico</span></Button>
+        <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Perfil</span></Button>
       </div>
       <Separator className="w-full max-w-md mb-8 z-20" />
 
-      <Card className="w-96 z-20">
+      <Card className="w-full max-w-md z-20 md:w-96">
         <CardHeader className="space-y-1">
-          <CardTitle>Histórico de Transações</CardTitle>
+          <CardTitle className="text-center md:text-left">Histórico de Transações</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 main-content">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
               <Label htmlFor="startDate">Data Inicial:</Label>
               <Input
@@ -250,7 +315,7 @@ export default function History() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
               <Label htmlFor="minValue">Valor Mínimo:</Label>
               <Input
@@ -281,31 +346,32 @@ export default function History() {
               <Skeleton className="w-full h-10 mb-2" />
             </div>
           ) : filteredTransactions.length > 0 ? (
-            <ul className="space-y-2">
+            <ul className="space-y-2 max-h-96 overflow-y-auto">
               {filteredTransactions.map((transaction) => (
                 <li
                   key={transaction.id}
-                  className="border rounded-md p-2 bg-muted"
+                  className="border rounded-md p-3 bg-muted shadow-sm" // Added shadow for better separation
                 >
-                  <p>
+                  <p className="font-semibold">
                     {transaction.remetente === auth.currentUser?.uid
                       ? `Enviado para: ${transaction.destinatarioNome}`
                       : `Recebido de: ${transaction.remetenteNome}`}
                   </p>
-                  <p className="md:text-sm">
+                  <p className={`md:text-sm font-bold ${transaction.destinatario === auth.currentUser?.uid ? 'text-green-600' : 'text-red-600'}`}>
                     Valor: Ƶ {transaction.valor.toFixed(2)}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Data: {format(parseISO(transaction.data), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 </li>
               ))}
             </ul>
           ) : (
-            <p>Nenhuma transação encontrada.</p>
+            <p className="text-center text-muted-foreground">Nenhuma transação encontrada com os filtros aplicados.</p>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
