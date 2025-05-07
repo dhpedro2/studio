@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   getFirestore,
   collection,
@@ -65,156 +65,153 @@ export default function History() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
 
   useEffect(() => {
-    let unsubscribe; // This variable is not used, consider removing or using it for onSnapshot cleanup
-    const loadTransactions = async () => {
-      setLoading(true);
-      if (!auth.currentUser) {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+        loadTransactions(user.uid);
+      } else {
+        router.push("/");
         setLoading(false);
-        return;
       }
+    });
+    return () => unsubscribe();
+  }, [auth, router]);
 
-      const userId = auth.currentUser.uid;
-      const transactionsCollection = collection(db, "transactions");
 
-      // Query for transactions where the user is the sender
-      const sentQuery = query(
-        transactionsCollection,
-        where("remetente", "==", userId),
-        orderBy("data", "desc")
-      );
+  const loadTransactions = async (userId: string) => {
+    setLoading(true);
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
-      // Query for transactions where the user is the recipient
-      const receivedQuery = query(
-        transactionsCollection,
-        where("destinatario", "==", userId),
-        orderBy("data", "desc")
-      );
+    const transactionsCollection = collection(db, "transactions");
+
+    // Query for transactions where the user is the sender
+    const sentQuery = query(
+      transactionsCollection,
+      where("remetente", "==", userId),
+      orderBy("data", "desc")
+    );
+
+    // Query for transactions where the user is the recipient
+    const receivedQuery = query(
+      transactionsCollection,
+      where("destinatario", "==", userId),
+      orderBy("data", "desc")
+    );
+    
+    // Query for admin actions involving the user (either as recipient of deposit or sender of withdrawal)
+    const adminToUserQuery = query(
+      transactionsCollection,
+      where("destinatario", "==", userId),
+      where("adminAction", "==", true),
+      orderBy("data", "desc")
+    );
+    const userToAdminQuery = query(
+      transactionsCollection,
+      where("remetente", "==", userId),
+      where("adminAction", "==", true),
+      orderBy("data", "desc")
+    );
+
+
+    try {
+      const [sentSnapshot, receivedSnapshot, adminToUserSnapshot, userToAdminSnapshotResolved] = await Promise.all([
+        getDocs(sentQuery),
+        getDocs(receivedQuery),
+        getDocs(adminToUserQuery),
+        getDocs(userToAdminQuery), // Corrected: use userToAdminQuery here
+      ]);
+
+      const transactionList: Transaction[] = [];
+      const processedIds = new Set<string>(); // To avoid duplicate transactions
+
+      const fetchUserName = async (uid: string): Promise<string> => {
+        if (uid === BANK_ADMIN_USER_ID) {
+          return "Banco";
+        }
+        try {
+          const userDocRef = doc(db, "users", uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            return userDocSnap.data().name || "Usuário Desconhecido";
+          }
+          return "Usuário Desconhecido";
+        } catch (error) {
+          console.error("Erro ao buscar nome do usuário:", error);
+          return "Erro ao buscar nome";
+        }
+      };
       
-      // Query for admin actions involving the user (either as recipient of deposit or sender of withdrawal)
-      const adminToUserQuery = query(
-        transactionsCollection,
-        where("destinatario", "==", userId),
-        where("adminAction", "==", true),
-        orderBy("data", "desc")
-      );
-      const userToAdminQuery = query(
-        transactionsCollection,
-        where("remetente", "==", userId),
-        where("adminAction", "==", true),
-        orderBy("data", "desc")
-      );
+      const processDoc = async (docSnap: any, currentUserId: string) => {
+          if (processedIds.has(docSnap.id)) return;
+          processedIds.add(docSnap.id);
 
+          const data = docSnap.data() as Transaction;
+          let remetenteNome = data.remetente === currentUserId ? "Você" : await fetchUserName(data.remetente);
+          let destinatarioNome = data.destinatario === currentUserId ? "Você" : await fetchUserName(data.destinatario);
 
-      try {
-        const [sentSnapshot, receivedSnapshot, adminToUserSnapshot, userToAdminSnapshot] = await Promise.all([
-          getDocs(sentQuery),
-          getDocs(receivedQuery),
-          getDocs(adminToUserQuery),
-          getDocs(userToAdminSnapshot),
-        ]);
-
-        const transactionList: Transaction[] = [];
-        const processedIds = new Set<string>(); // To avoid duplicate transactions
-
-        const fetchUserName = async (uid: string): Promise<string> => {
-          if (uid === BANK_ADMIN_USER_ID) {
-            return "Banco";
+          if (data.adminAction) {
+              if (data.remetente === BANK_ADMIN_USER_ID) { 
+                  remetenteNome = "Banco";
+                  destinatarioNome = data.destinatario === currentUserId ? "Você" : await fetchUserName(data.destinatario);
+              } else { 
+                  remetenteNome = data.remetente === currentUserId ? "Você" : await fetchUserName(data.remetente);
+                  destinatarioNome = "Banco";
+              }
           }
-          try {
-            const userDocRef = doc(db, "users", uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-              return userDoc.data().name || "Usuário Desconhecido";
-            }
-            return "Usuário Desconhecido";
-          } catch (error) {
-            console.error("Erro ao buscar nome do usuário:", error);
-            return "Erro ao buscar nome";
+
+
+          transactionList.push({
+              id: docSnap.id,
+              ...data,
+              remetenteNome,
+              destinatarioNome,
+          });
+      };
+
+
+      // Process normal sent transactions (excluding admin withdrawals initiated by user)
+      for (const docSnap of sentSnapshot.docs) {
+          if (!docSnap.data().adminAction || docSnap.data().remetente === userId) {
+               await processDoc(docSnap, userId);
           }
-        };
-        
-        const processDoc = async (docSnap: any, isSent: boolean, isAdminAdjustment: boolean = false) => {
-            if (processedIds.has(docSnap.id)) return;
-            processedIds.add(docSnap.id);
-
-            const data = docSnap.data() as Transaction;
-            let remetenteNome = "Você";
-            let destinatarioNome = "Você";
-
-            if (data.adminAction) {
-                if (data.remetente === BANK_ADMIN_USER_ID) { // Admin deposit to user
-                    remetenteNome = "Banco";
-                    destinatarioNome = await fetchUserName(data.destinatario); // Should be current user's name or "Você"
-                } else { // Admin withdrawal from user
-                    remetenteNome = await fetchUserName(data.remetente); // Should be current user's name or "Você"
-                    destinatarioNome = "Banco";
-                }
-            } else {
-                 if (isSent) { // User sent to another user
-                    destinatarioNome = await fetchUserName(data.destinatario);
-                 } else { // User received from another user
-                    remetenteNome = await fetchUserName(data.remetente);
-                 }
-            }
-
-
-            transactionList.push({
-                id: docSnap.id,
-                ...data,
-                remetenteNome,
-                destinatarioNome,
-            });
-        };
-
-
-        // Process normal sent transactions (excluding admin withdrawals initiated by user)
-        for (const docSnap of sentSnapshot.docs) {
-            if (!docSnap.data().adminAction) {
-                 await processDoc(docSnap, true);
-            }
-        }
-        // Process normal received transactions (excluding admin deposits initiated for user)
-        for (const docSnap of receivedSnapshot.docs) {
-             if (!docSnap.data().adminAction) {
-                await processDoc(docSnap, false);
-             }
-        }
-        // Process admin deposits to the user
-        for (const docSnap of adminToUserSnapshot.docs) {
-            await processDoc(docSnap, false, true);
-        }
-        // Process admin withdrawals from the user
-        for (const docSnap of userToAdminSnapshot.docs) {
-            await processDoc(docSnap, true, true);
-        }
-
-
-        transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
-        setTransactions(transactionList);
-
-      } catch (error: any) {
-        console.error("Error loading transactions:", error);
-        toast({
-          variant: "destructive",
-          title: "Erro ao carregar histórico",
-          description: error.message,
-        });
-      } finally {
-        setLoading(false);
       }
-    };
+      // Process normal received transactions (excluding admin deposits initiated for user)
+      for (const docSnap of receivedSnapshot.docs) {
+           if (!docSnap.data().adminAction || docSnap.data().destinatario === userId) {
+              await processDoc(docSnap, userId);
+           }
+      }
+      // Process admin deposits to the user
+      for (const docSnap of adminToUserSnapshot.docs) {
+          await processDoc(docSnap, userId);
+      }
+      // Process admin withdrawals from the user
+      for (const docSnap of userToAdminSnapshotResolved.docs) {
+          await processDoc(docSnap, userId);
+      }
 
-    loadTransactions();
 
-    // Cleanup function for onSnapshot if you implement real-time updates later
-    // return () => {
-    //   if (unsubscribe) {
-    //     unsubscribe();
-    //   }
-    // };
-  }, [auth.currentUser, db, toast]);
+      transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
+      setTransactions(transactionList);
+
+    } catch (error: any) {
+      console.error("Error loading transactions:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar histórico",
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     let filtered = [...transactions];
@@ -228,14 +225,14 @@ export default function History() {
       });
     }
 
-    if (typeFilter !== "todos" && auth.currentUser) {
+    if (typeFilter !== "todos" && currentUser) {
       filtered = filtered.filter(transaction => {
         if (typeFilter === "entrada") {
-          return transaction.destinatario === auth.currentUser!.uid;
+          return transaction.destinatario === currentUser!.uid;
         } else if (typeFilter === "saída") {
-          return transaction.remetente === auth.currentUser!.uid;
+          return transaction.remetente === currentUser!.uid;
         }
-        return true; // Should not happen if filter is 'entrada' or 'saída'
+        return true; 
       });
     }
     
@@ -249,7 +246,7 @@ export default function History() {
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, auth.currentUser?.uid]);
+  }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, currentUser]);
 
   return (
     <div className="relative flex flex-col items-center justify-start min-h-screen py-8">
@@ -350,14 +347,14 @@ export default function History() {
               {filteredTransactions.map((transaction) => (
                 <li
                   key={transaction.id}
-                  className="border rounded-md p-3 bg-muted shadow-sm" // Added shadow for better separation
+                  className="border rounded-md p-3 bg-muted shadow-sm" 
                 >
                   <p className="font-semibold">
-                    {transaction.remetente === auth.currentUser?.uid
+                    {transaction.remetente === currentUser?.uid
                       ? `Enviado para: ${transaction.destinatarioNome}`
                       : `Recebido de: ${transaction.remetenteNome}`}
                   </p>
-                  <p className={`md:text-sm font-bold ${transaction.destinatario === auth.currentUser?.uid ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className={`md:text-sm font-bold ${transaction.destinatario === currentUser?.uid ? 'text-green-600' : 'text-red-600'}`}>
                     Valor: Ƶ {transaction.valor.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -374,4 +371,5 @@ export default function History() {
     </div>
   );
 }
+
 
