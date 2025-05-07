@@ -129,11 +129,11 @@ export default function Profile() {
         );
 
 
-        const [sentSnapshot, receivedSnapshot, adminToUserSnapshot, userToAdminSnapshot] = await Promise.all([
+        const [sentSnapshot, receivedSnapshot, adminToUserSnapshot, userToAdminSnapshotResolved] = await Promise.all([
             getDocs(sentQuery),
             getDocs(receivedQuery),
             getDocs(adminToUserQuery),
-            getDocs(userToAdminSnapshot),
+            getDocs(userToAdminQuery),
         ]);
 
         const transactionList: Transaction[] = [];
@@ -186,7 +186,7 @@ export default function Profile() {
         for (const docSnap of adminToUserSnapshot.docs) {
             await processDoc(docSnap, 'admin_to_user');
         }
-        for (const docSnap of userToAdminSnapshot.docs) {
+        for (const docSnap of userToAdminSnapshotResolved.docs) { // Changed userToAdminSnapshot to userToAdminSnapshotResolved
             await processDoc(docSnap, 'user_to_admin');
         }
 
