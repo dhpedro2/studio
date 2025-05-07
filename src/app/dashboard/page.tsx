@@ -152,7 +152,12 @@ export default function Dashboard() {
                 
                 // Handle lastYieldDate conversion from Firestore Timestamp
                 const lastYieldTimestamp = data.lastYieldDate;
-                const loadedLastYieldDate = lastYieldTimestamp ? (lastYieldTimestamp as Timestamp).toDate() : null;
+                let loadedLastYieldDate: Date | null = null;
+                if (lastYieldTimestamp && typeof (lastYieldTimestamp as any).toDate === 'function') {
+                    loadedLastYieldDate = (lastYieldTimestamp as Timestamp).toDate();
+                } else if (lastYieldTimestamp instanceof Date) {
+                    loadedLastYieldDate = lastYieldTimestamp;
+                }
                 setLastYieldDate(loadedLastYieldDate);
 
                 const historyFromDb = data.caixinhaYieldHistory || [];
@@ -250,7 +255,12 @@ export default function Dashboard() {
                         setSaldo(data.saldo || 0);
                         setSaldoCaixinha(data.saldoCaixinha || 0);
                         const lastYieldTimestamp = data.lastYieldDate;
-                        const newLastYieldDate = lastYieldTimestamp ? (lastYieldTimestamp as Timestamp).toDate() : null;
+                        let newLastYieldDate: Date | null = null;
+                        if (lastYieldTimestamp && typeof (lastYieldTimestamp as any).toDate === 'function') {
+                            newLastYieldDate = (lastYieldTimestamp as Timestamp).toDate();
+                        } else if (lastYieldTimestamp instanceof Date) {
+                           newLastYieldDate = lastYieldTimestamp;
+                        }
                         
                         // Check if lastYieldDate has actually changed to avoid re-running calculation unnecessarily
                         if (newLastYieldDate?.getTime() !== lastYieldDate?.getTime()) {
@@ -596,4 +606,5 @@ export default function Dashboard() {
         </div>
     );
 }
+
 
