@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,15 +11,16 @@ import {
   where,
   orderBy,
   getDocs,
-  getDoc,
   doc,
+  Timestamp,
+  or
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,20 +38,20 @@ const firebaseConfig = {
   measurementId: "G-JPFXDJBSGM",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const BANK_ADMIN_USER_ID = "ZACA_BANK_ADMIN_SYSTEM";
 
 
 interface Transaction {
   id: string;
-  remetente: string;
-  destinatario: string;
+  remetente: string; // UID of sender
+  destinatario: string; // UID of recipient
   valor: number;
-  data: string;
-  remetenteNome?: string; // Made optional as it might be "Banco"
-  destinatarioNome?: string; // Made optional as it might be "Banco"
-  adminAction?: boolean; // Flag for admin actions
+  data: string | Timestamp; // Keep as string for Firestore compatibility, convert on client
+  remetenteNome?: string;
+  destinatarioNome?: string;
+  adminAction?: boolean;
+  tipo?: string; // e.g., 'transferencia', 'admin_deposit_saldo', 'admin_withdrawal_saldo'
 }
 
 export default function History() {
@@ -65,178 +67,100 @@ export default function History() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(true);
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserFullName, setCurrentUserFullName] = useState<string>("Você");
+
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        setCurrentUser(user);
-        loadTransactions(user.uid);
+        setCurrentUserId(user.uid);
+        const userDocRef = doc(db, "users", user.uid);
+        const userDocSnap = await getDocs(query(collection(db, "users"), where("email", "==", user.email))); // Not ideal, but for prototype
+        if (!userDocSnap.empty) {
+            setCurrentUserFullName(userDocSnap.docs[0].data().fullName || "Você");
+        }
       } else {
         router.push("/");
-        setLoading(false);
       }
     });
     return () => unsubscribe();
-  }, [auth, router]);
+  }, [auth, router, db]);
 
-
-  const loadTransactions = async (userId: string) => {
-    setLoading(true);
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    const transactionsCollection = collection(db, "transactions");
-
-    // Query for transactions where the user is the sender
-    const sentQuery = query(
-      transactionsCollection,
-      where("remetente", "==", userId),
-      orderBy("data", "desc")
-    );
-
-    // Query for transactions where the user is the recipient
-    const receivedQuery = query(
-      transactionsCollection,
-      where("destinatario", "==", userId),
-      orderBy("data", "desc")
-    );
-    
-    // Query for admin actions involving the user (either as recipient of deposit or sender of withdrawal)
-    const adminToUserQuery = query(
-      transactionsCollection,
-      where("destinatario", "==", userId),
-      where("adminAction", "==", true),
-      orderBy("data", "desc")
-    );
-    const userToAdminQuery = query(
-      transactionsCollection,
-      where("remetente", "==", userId),
-      where("adminAction", "==", true),
-      orderBy("data", "desc")
-    );
-
-
-    try {
-      const [sentSnapshot, receivedSnapshot, adminToUserSnapshot, userToAdminSnapshotResolved] = await Promise.all([
-        getDocs(sentQuery),
-        getDocs(receivedQuery),
-        getDocs(adminToUserQuery),
-        getDocs(userToAdminQuery), // Corrected: use userToAdminQuery here
-      ]);
-
-      const transactionList: Transaction[] = [];
-      const processedIds = new Set<string>(); // To avoid duplicate transactions
-
-      const fetchUserName = async (uid: string): Promise<string> => {
-        if (uid === BANK_ADMIN_USER_ID) {
-          return "Banco";
+  useEffect(() => {
+    const loadTransactions = async () => {
+        if (!currentUserId) {
+            setLoading(false);
+            return;
         }
+        setLoading(true);
         try {
-          const userDocRef = doc(db, "users", uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            return userDocSnap.data().name || "Usuário Desconhecido";
-          }
-          return "Usuário Desconhecido";
-        } catch (error) {
-          console.error("Erro ao buscar nome do usuário:", error);
-          return "Erro ao buscar nome";
+            const transactionsCollectionRef = collection(db, "transactions");
+            const userTransactionsQuery = query(
+                transactionsCollectionRef,
+                or(
+                    where("remetente", "==", currentUserId),
+                    where("destinatario", "==", currentUserId)
+                ),
+                orderBy("data", "desc")
+            );
+
+            const querySnapshot = await getDocs(userTransactionsQuery);
+            const transactionList: Transaction[] = querySnapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data(),
+            } as Transaction));
+            
+            setTransactions(transactionList);
+
+        } catch (error: any) {
+            console.error("Error loading transactions:", error);
+            toast({
+                variant: "destructive",
+                title: "Erro ao carregar histórico",
+                description: error.message,
+            });
+        } finally {
+            setLoading(false);
         }
-      };
-      
-      const processDoc = async (docSnap: any, currentUserId: string) => {
-          if (processedIds.has(docSnap.id)) return;
-          processedIds.add(docSnap.id);
+    };
 
-          const data = docSnap.data() as Transaction;
-          let remetenteNome = data.remetente === currentUserId ? "Você" : await fetchUserName(data.remetente);
-          let destinatarioNome = data.destinatario === currentUserId ? "Você" : await fetchUserName(data.destinatario);
-
-          if (data.adminAction) {
-              if (data.remetente === BANK_ADMIN_USER_ID) { 
-                  remetenteNome = "Banco";
-                  destinatarioNome = data.destinatario === currentUserId ? "Você" : await fetchUserName(data.destinatario);
-              } else { 
-                  remetenteNome = data.remetente === currentUserId ? "Você" : await fetchUserName(data.remetente);
-                  destinatarioNome = "Banco";
-              }
-          }
-
-
-          transactionList.push({
-              id: docSnap.id,
-              ...data,
-              remetenteNome,
-              destinatarioNome,
-          });
-      };
-
-
-      // Process normal sent transactions (excluding admin withdrawals initiated by user)
-      for (const docSnap of sentSnapshot.docs) {
-          if (!docSnap.data().adminAction || docSnap.data().remetente === userId) {
-               await processDoc(docSnap, userId);
-          }
-      }
-      // Process normal received transactions (excluding admin deposits initiated for user)
-      for (const docSnap of receivedSnapshot.docs) {
-           if (!docSnap.data().adminAction || docSnap.data().destinatario === userId) {
-              await processDoc(docSnap, userId);
-           }
-      }
-      // Process admin deposits to the user
-      for (const docSnap of adminToUserSnapshot.docs) {
-          await processDoc(docSnap, userId);
-      }
-      // Process admin withdrawals from the user
-      for (const docSnap of userToAdminSnapshotResolved.docs) {
-          await processDoc(docSnap, userId);
-      }
-
-
-      transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
-      setTransactions(transactionList);
-
-    } catch (error: any) {
-      console.error("Error loading transactions:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao carregar histórico",
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
+    if (currentUserId) {
+        loadTransactions();
     }
-  };
+  }, [currentUserId, db, toast]);
 
 
   useEffect(() => {
     let filtered = [...transactions];
 
-    if (startDate && endDate) {
-      const inclusiveEndDate = new Date(endDate);
-      inclusiveEndDate.setHours(23, 59, 59, 999); // Make endDate inclusive
-      filtered = filtered.filter(transaction => {
-        const transactionDate = parseISO(transaction.data);
-        return transactionDate >= startDate && transactionDate <= inclusiveEndDate;
-      });
+    if (startDate) {
+        const start = startOfDay(startDate);
+        filtered = filtered.filter(transaction => {
+            const transactionDate = transaction.data instanceof Timestamp ? transaction.data.toDate() : parseISO(transaction.data as string);
+            return transactionDate >= start;
+        });
+    }
+    if (endDate) {
+        const end = endOfDay(endDate);
+        filtered = filtered.filter(transaction => {
+            const transactionDate = transaction.data instanceof Timestamp ? transaction.data.toDate() : parseISO(transaction.data as string);
+            return transactionDate <= end;
+        });
     }
 
-    if (typeFilter !== "todos" && currentUser) {
+
+    if (typeFilter !== "todos" && currentUserId) {
       filtered = filtered.filter(transaction => {
         if (typeFilter === "entrada") {
-          return transaction.destinatario === currentUser!.uid;
+          return transaction.destinatario === currentUserId;
         } else if (typeFilter === "saída") {
-          return transaction.remetente === currentUser!.uid;
+          return transaction.remetente === currentUserId;
         }
         return true; 
       });
     }
     
-
     if (minValue !== null) {
       filtered = filtered.filter(transaction => transaction.valor >= minValue);
     }
@@ -246,7 +170,24 @@ export default function History() {
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, currentUser]);
+  }, [transactions, startDate, endDate, typeFilter, minValue, maxValue, currentUserId]);
+
+  const getFormattedDate = (data: string | Timestamp): string => {
+    const date = data instanceof Timestamp ? data.toDate() : parseISO(data as string);
+    return format(date, "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
+  };
+
+  const getTransactionPartyName = (transaction: Transaction, perspective: 'remetente' | 'destinatario'): string => {
+    if (transaction.adminAction) {
+        return "Banco";
+    }
+    if (perspective === 'remetente') {
+        return transaction.remetente === currentUserId ? currentUserFullName : transaction.remetenteNome || "Desconhecido";
+    }
+    // perspective === 'destinatario'
+    return transaction.destinatario === currentUserId ? currentUserFullName : transaction.destinatarioNome || "Desconhecido";
+  };
+
 
   return (
     <div className="relative flex flex-col items-center justify-start min-h-screen py-8">
@@ -258,12 +199,11 @@ export default function History() {
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
-        <div className="flex justify-center items-center py-4">
+      <div className="flex justify-center items-center py-4 z-20">
         <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
           Zaca Bank
         </h1>
       </div>
-      {/* Navigation Buttons */}
       <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
         <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Início</span></Button>
         <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Transferências</span></Button>
@@ -350,15 +290,15 @@ export default function History() {
                   className="border rounded-md p-3 bg-muted shadow-sm" 
                 >
                   <p className="font-semibold">
-                    {transaction.remetente === currentUser?.uid
-                      ? `Enviado para: ${transaction.destinatarioNome}`
-                      : `Recebido de: ${transaction.remetenteNome}`}
+                    {transaction.remetente === currentUserId
+                      ? `Enviado para: ${getTransactionPartyName(transaction, 'destinatario')}`
+                      : `Recebido de: ${getTransactionPartyName(transaction, 'remetente')}`}
                   </p>
-                  <p className={`md:text-sm font-bold ${transaction.destinatario === currentUser?.uid ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className={`md:text-sm font-bold ${transaction.destinatario === currentUserId ? 'text-green-600' : 'text-red-600'}`}>
                     Valor: Ƶ {transaction.valor.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Data: {format(parseISO(transaction.data), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                    Data: {getFormattedDate(transaction.data)}
                   </p>
                 </li>
               ))}
@@ -371,5 +311,3 @@ export default function History() {
     </div>
   );
 }
-
-

@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth, signOut } from "firebase/auth";
+import { getAuth, signOut, onAuthStateChanged } from "firebase/auth";
 import {
   getFirestore,
   doc,
@@ -12,10 +13,11 @@ import {
   where,
   getDocs,
   orderBy,
+  Timestamp,
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, Settings, LogOut } from 'lucide-react';
+import { Home, Wallet, Clock, User, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from 'date-fns';
@@ -31,7 +33,7 @@ import {
     ResponsiveContainer
   } from 'recharts';
 import { useToast } from "@/hooks/use-toast";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import '@/app/globals.css';
 
@@ -45,7 +47,6 @@ const firebaseConfig = {
   measurementId: "G-JPFXDJBSGM",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const BANK_ADMIN_USER_ID = "ZACA_BANK_ADMIN_SYSTEM";
 
@@ -54,160 +55,113 @@ interface Transaction {
   remetente: string;
   destinatario: string;
   valor: number;
-  data: string;
+  data: string | Timestamp; // Can be string from old data or Timestamp from new
   remetenteNome?: string;
   destinatarioNome?: string;
   adminAction?: boolean;
+  tipo?: string;
 }
 
 export default function Profile() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [totalAmountTransferred, setTotalAmountTransferred] = useState<number>(0); // This will now be total outgoing
-  const [totalAmountReceived, setTotalAmountReceived] = useState<number>(0); // New state for total incoming
+  const [totalAmountTransferred, setTotalAmountTransferred] = useState<number>(0);
+  const [totalAmountReceived, setTotalAmountReceived] = useState<number>(0);
   const [transactionFrequency, setTransactionFrequency] = useState<any>({});
-  const [name, setName] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
+  const [callNumber, setCallNumber] = useState<number | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null); // For the dummy email
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUserId(user.uid);
+      } else {
+        router.push("/");
+      }
+    });
+    return () => unsubscribe();
+  }, [auth, router]);
 
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
-      if (!auth.currentUser) {
-        router.push("/"); // Redirect if not logged in
+      if (!currentUserId) {
         setLoading(false);
         return;
       }
+      setLoading(true);
 
-      const userId = auth.currentUser.uid;
-      const userDocRef = doc(db, "users", userId);
+      const userDocRef = doc(db, "users", currentUserId);
       
       try {
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          setName(userData.name || null);
-          setEmail(userData.email || null);
-          setCreatedAt(userData.createdAt || null);
+          setFullName(userData.fullName || null);
+          setCallNumber(userData.callNumber || null);
+          setUserEmail(userData.email || null); // Store dummy email
+          if (userData.createdAt && typeof userData.createdAt === 'string') {
+            setCreatedAt(userData.createdAt);
+          } else if (userData.createdAt && userData.createdAt.toDate) { // Handle Timestamp
+             setCreatedAt(userData.createdAt.toDate().toISOString());
+          }
         } else {
-           router.push("/"); // Redirect if user document doesn't exist
-           toast({
-                variant: "destructive",
-                title: "Conta não encontrada",
-                description: "Sua conta pode ter sido excluída ou não existe.",
-            });
+           router.push("/"); 
+           toast({ variant: "destructive", title: "Conta não encontrada" });
            setLoading(false);
            return;
         }
 
-        const transactionsCollection = collection(db, "transactions");
-        const sentQuery = query(
-            transactionsCollection,
-            where("remetente", "==", userId),
-            orderBy("data", "desc")
-        );
-        const receivedQuery = query(
-            transactionsCollection,
-            where("destinatario", "==", userId),
-            orderBy("data", "desc")
-        );
-         const adminToUserQuery = query(
-            transactionsCollection,
-            where("destinatario", "==", userId),
-            where("adminAction", "==", true),
-            orderBy("data", "desc")
-        );
-        const userToAdminQuery = query(
-            transactionsCollection,
-            where("remetente", "==", userId),
-            where("adminAction", "==", true),
-            orderBy("data", "desc")
-        );
+        const transactionsCollectionRef = collection(db, "transactions");
+        
+        const sentQuery = query(transactionsCollectionRef, where("remetente", "==", currentUserId), orderBy("data", "desc"));
+        const receivedQuery = query(transactionsCollectionRef, where("destinatario", "==", currentUserId), orderBy("data", "desc"));
 
-
-        const [sentSnapshot, receivedSnapshot, adminToUserSnapshot, userToAdminSnapshotResolved] = await Promise.all([
+        const [sentSnapshot, receivedSnapshot] = await Promise.all([
             getDocs(sentQuery),
             getDocs(receivedQuery),
-            getDocs(adminToUserQuery),
-            getDocs(userToAdminQuery),
         ]);
 
         const transactionList: Transaction[] = [];
         const processedIds = new Set<string>();
 
-        const fetchUserName = async (uid: string): Promise<string> => {
-            if (uid === BANK_ADMIN_USER_ID) return "Banco";
-            try {
-                const targetUserDocRef = doc(db, "users", uid);
-                const targetUserDoc = await getDoc(targetUserDocRef);
-                return targetUserDoc.exists() ? targetUserDoc.data().name || "Usuário Desconhecido" : "Usuário Desconhecido";
-            } catch (error) {
-                console.error("Erro ao buscar nome do usuário:", error);
-                return "Erro ao buscar nome";
-            }
-        };
-
-        const processDoc = async (docSnap: any, type: 'sent' | 'received' | 'admin_to_user' | 'user_to_admin') => {
+        const processDoc = (docSnap: any) => {
             if (processedIds.has(docSnap.id)) return;
             processedIds.add(docSnap.id);
-
             const data = docSnap.data() as Transaction;
-            let remetenteNome = "Você";
-            let destinatarioNome = "Você";
-
-            if (data.adminAction) {
-                if (data.remetente === BANK_ADMIN_USER_ID) { // Admin deposit to user
-                    remetenteNome = "Banco";
-                    destinatarioNome = name || "Você"; 
-                } else { // Admin withdrawal from user
-                    remetenteNome = name || "Você";
-                    destinatarioNome = "Banco";
-                }
-            } else {
-                 if (type === 'sent') {
-                    destinatarioNome = await fetchUserName(data.destinatario);
-                 } else if (type === 'received') {
-                    remetenteNome = await fetchUserName(data.remetente);
-                 }
-            }
-            transactionList.push({ id: docSnap.id, ...data, remetenteNome, destinatarioNome });
+            transactionList.push({ id: docSnap.id, ...data });
         };
         
-        for (const docSnap of sentSnapshot.docs) {
-            if (!docSnap.data().adminAction) await processDoc(docSnap, 'sent');
-        }
-        for (const docSnap of receivedSnapshot.docs) {
-            if (!docSnap.data().adminAction) await processDoc(docSnap, 'received');
-        }
-        for (const docSnap of adminToUserSnapshot.docs) {
-            await processDoc(docSnap, 'admin_to_user');
-        }
-        for (const docSnap of userToAdminSnapshotResolved.docs) { // Changed userToAdminSnapshot to userToAdminSnapshotResolved
-            await processDoc(docSnap, 'user_to_admin');
-        }
+        sentSnapshot.docs.forEach(docSnap => processDoc(docSnap));
+        receivedSnapshot.docs.forEach(docSnap => processDoc(docSnap));
 
-
-        transactionList.sort((a, b) => (parseISO(b.data).getTime() - parseISO(a.data).getTime()));
+        // Sort combined list by date
+        transactionList.sort((a, b) => {
+            const dateA = a.data instanceof Timestamp ? a.data.toMillis() : parseISO(a.data as string).getTime();
+            const dateB = b.data instanceof Timestamp ? b.data.toMillis() : parseISO(b.data as string).getTime();
+            return dateB - dateA;
+        });
         setTransactions(transactionList);
 
         const totalSent = transactionList
-            .filter(t => t.remetente === userId && !t.adminAction) // Exclude admin withdrawals from this sum
+            .filter(t => t.remetente === currentUserId && t.tipo !== 'admin_withdrawal_saldo' && t.tipo !== 'admin_withdrawal_saldoCaixinha')
             .reduce((sum, t) => sum + t.valor, 0);
         setTotalAmountTransferred(totalSent);
 
         const totalReceived = transactionList
-            .filter(t => t.destinatario === userId && !t.adminAction) // Exclude admin deposits from this sum
+            .filter(t => t.destinatario === currentUserId && t.tipo !== 'admin_deposit_saldo' && t.tipo !== 'admin_deposit_saldoCaixinha')
             .reduce((sum, t) => sum + t.valor, 0);
         setTotalAmountReceived(totalReceived);
 
-
         const frequency: { [key: string]: number } = {};
         transactionList.forEach(transaction => {
-            const dateKey = format(parseISO(transaction.data), 'yyyy-MM-dd');
+            const dateKey = format(transaction.data instanceof Timestamp ? transaction.data.toDate() : parseISO(transaction.data as string), 'yyyy-MM-dd');
             frequency[dateKey] = (frequency[dateKey] || 0) + 1;
         });
         setTransactionFrequency(frequency);
@@ -220,8 +174,10 @@ export default function Profile() {
       }
     };
   
-    loadData();
-  }, [auth.currentUser, db, router, toast, name]); // Added name to dependency array
+    if (currentUserId) {
+      loadData();
+    }
+  }, [currentUserId, db, router, toast]);
 
   const handleLogout = async () => {
     try {
@@ -239,11 +195,16 @@ export default function Profile() {
       });
     }
   };
+  
+  const getDateFromTransaction = (transactionData: string | Timestamp): Date => {
+    return transactionData instanceof Timestamp ? transactionData.toDate() : parseISO(transactionData as string);
+  };
+
 
   const chartData = Object.entries(transactionFrequency)
     .map(([date, count]) => ({ date, count }))
-    .sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime()) // Sort by date for chart
-    .slice(-30); // Show last 30 days
+    .sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+    .slice(-30);
 
 
   return (
@@ -256,18 +217,17 @@ export default function Profile() {
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
-        <div className="flex justify-center items-center py-4">
+      <div className="flex justify-center items-center py-4 z-20">
         <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
           Zaca Bank
         </h1>
       </div>
-      {/* Navigation Buttons */}
-        <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
-            <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Início</span></Button>
-            <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Transferências</span></Button>
-            <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Histórico</span></Button>
-            <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Perfil</span></Button>
-        </div>
+      <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
+        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Início</span></Button>
+        <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Transferências</span></Button>
+        <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Histórico</span></Button>
+        <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Perfil</span></Button>
+      </div>
       <Separator className="w-full max-w-md mb-8 z-20" />
 
       <Card className="w-full max-w-md z-20 md:w-96">
@@ -276,19 +236,22 @@ export default function Profile() {
         </CardHeader>
         <CardContent className="grid gap-4 main-content">
           <div className="flex items-center space-x-4">
-             <Avatar className="h-16 w-16"> {/* Increased size */}
+             <Avatar className="h-16 w-16">
                  {loading ? (
                      <Skeleton className="h-16 w-16 rounded-full"/>
                  ) : (
-                 <AvatarFallback className="text-2xl">{name ? name.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
+                 <AvatarFallback className="text-2xl">{fullName ? fullName.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                  )}
               </Avatar>
-            <div className="flex-1"> {/* Added flex-1 to allow text to take available space */}
+            <div className="flex-1">
               <p className="text-lg font-semibold">
-                Nome: {loading ? <Skeleton className="inline-block w-32 h-5"/> : (name || "Carregando...")}
+                Nome: {loading ? <Skeleton className="inline-block w-32 h-5"/> : (fullName || "Carregando...")}
               </p>
-              <p className="text-md text-muted-foreground"> {/* Adjusted size and color for email */}
-                Email: {loading ? <Skeleton className="inline-block w-48 h-5"/> : (email || "Carregando...")}
+              <p className="text-md text-muted-foreground">
+                Nº Chamada: {loading ? <Skeleton className="inline-block w-16 h-5"/> : (callNumber || "...")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Email (interno): {loading ? <Skeleton className="inline-block w-48 h-4"/> : (userEmail || "...")}
               </p>
                {createdAt && (
                 <p className="text-xs text-muted-foreground mt-1">

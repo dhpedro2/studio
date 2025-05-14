@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   getFirestore,
   doc,
@@ -14,6 +15,7 @@ import {
   getDoc,
   addDoc,
   onSnapshot,
+  serverTimestamp,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -29,12 +31,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Home, Wallet, Clock, User } from 'lucide-react';
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import '@/app/globals.css';
 
@@ -48,18 +48,20 @@ const firebaseConfig = {
   measurementId: "G-JPFXDJBSGM",
 };
 
-// Initialize Firebase
-initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const DUMMY_EMAIL_DOMAIN = "bank.zaca";
+
 
 export default function Transfer() {
-  const [destinatarioEmail, setDestinatarioEmail] = useState("");
+  const [destinatarioCallNumber, setDestinatarioCallNumber] = useState("");
   const [valor, setValor] = useState("");
   const [destinatarioNome, setDestinatarioNome] = useState("");
+  const [destinatarioUid, setDestinatarioUid] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
   const { toast } = useToast();
-  const auth = getAuth();
-  const db = getFirestore();
+  const auth = getAuth(app);
+  const db = getFirestore(app);
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const [valorTransferencia, setValorTransferencia] = useState<number>(0);
@@ -68,76 +70,81 @@ export default function Transfer() {
   const [insufficientBalanceOpen, setInsufficientBalanceOpen] = useState(false);
   const [sameAccountOpen, setSameAccountOpen] = useState(false);
   const [loadingSaldo, setLoadingSaldo] = useState(true);
+  const [loadingDestinatario, setLoadingDestinatario] = useState(false);
 
-  // Store recipient info for use in success message
   const [successDestinatarioNome, setSuccessDestinatarioNome] = useState("");
-  const [successDestinatarioEmail, setSuccessDestinatarioEmail] = useState("");
+  const [successDestinatarioCallNumber, setSuccessDestinatarioCallNumber] = useState("");
+
 
   useEffect(() => {
-    if (auth.currentUser) {
-      setUserId(auth.currentUser.uid);
-    }
-  }, [auth.currentUser]);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUserId(currentUser.uid);
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const unsubSnapshot = onSnapshot(userDocRef, (docSnap) => {
+          setLoadingSaldo(true);
+          if (docSnap.exists()) {
+            setSaldo(docSnap.data().saldo || 0);
+          } else {
+            setSaldo(0);
+            toast({ variant: "destructive", title: "Erro", description: "Usuário não encontrado no banco de dados." });
+            router.push("/");
+          }
+          setLoadingSaldo(false);
+        }, (error) => {
+          console.error("Error fetching real-time balance:", error);
+          toast({ variant: "destructive", title: "Erro de Sincronização", description: "Não foi possível carregar o saldo." });
+          setLoadingSaldo(false);
+        });
+        return () => unsubSnapshot();
+      } else {
+        router.push("/");
+      }
+    });
+     return () => unsubscribe();
+  }, [auth, db, router, toast]);
+
 
   useEffect(() => {
     const fetchDestinatarioNome = async () => {
-      if (destinatarioEmail) {
-        const usersCollection = collection(db, "users");
-        const q = query(usersCollection, where("email", "==", destinatarioEmail));
-        const querySnapshot = await getDocs(q);
+      if (destinatarioCallNumber) {
+        setLoadingDestinatario(true);
+        setDestinatarioNome(""); // Clear previous name
+        setDestinatarioUid(null);
+        try {
+          const usersCollection = collection(db, "users");
+          const q = query(usersCollection, where("callNumber", "==", parseInt(destinatarioCallNumber)));
+          const querySnapshot = await getDocs(q);
 
-        if (!querySnapshot.empty) {
-          const userDoc = querySnapshot.docs[0];
-          setDestinatarioNome(userDoc.data().name || "");
-        } else {
-          setDestinatarioNome("Usuário não encontrado");
+          if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0];
+            setDestinatarioNome(userDoc.data().fullName || "Nome não encontrado");
+            setDestinatarioUid(userDoc.id);
+          } else {
+            setDestinatarioNome("Usuário não encontrado");
+          }
+        } catch (error) {
+            console.error("Error fetching recipient details:", error);
+            setDestinatarioNome("Erro ao buscar usuário");
+        } finally {
+            setLoadingDestinatario(false);
         }
       } else {
         setDestinatarioNome("");
+        setDestinatarioUid(null);
       }
     };
 
-    fetchDestinatarioNome();
-  }, [destinatarioEmail, db]);
+    const debounceTimer = setTimeout(() => {
+        if (destinatarioCallNumber) fetchDestinatarioNome();
+    }, 500); // Add a small delay to avoid querying on every keystroke
 
-  useEffect(() => {
-    const loadSaldo = async () => {
-      setLoadingSaldo(true);
-      if (auth.currentUser) {
-        const userDocRef = doc(db, "users", auth.currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
+    return () => clearTimeout(debounceTimer);
+  }, [destinatarioCallNumber, db]);
 
-        if (userDoc.exists()) {
-          setSaldo(userDoc.data().saldo || 0);
-        } else {
-          setSaldo(0);
-        }
-      }
-      setLoadingSaldo(false);
-    };
-
-    loadSaldo();
-  }, [auth.currentUser, db]);
-
-    useEffect(() => {
-        if (auth.currentUser) {
-            const userDocRef = doc(db, "users", auth.currentUser.uid);
-
-            // Subscribe to real-time updates
-            const unsubscribe = onSnapshot(userDocRef, (doc) => {
-                if (doc.exists()) {
-                    setSaldo(doc.data().saldo || 0);
-                } else {
-                    setSaldo(0);
-                }
-            });
-
-            return () => unsubscribe();
-        }
-    }, [auth.currentUser, db]);
 
   const handleTransfer = async () => {
-    if (!destinatarioEmail || !valor) {
+    if (!destinatarioCallNumber || !valor) {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -156,128 +163,96 @@ export default function Transfer() {
       });
       return;
     }
-
-    // Check if sender and receiver are the same
-    const usersCollection = collection(db, "users");
-    const q = query(usersCollection, where("email", "==", destinatarioEmail));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      const destinatarioDoc = querySnapshot.docs[0];
-      if (userId === destinatarioDoc.id) {
-        setValorTransferencia(parsedValor);
-        setSuccessDestinatarioNome(destinatarioNome);
-        setSuccessDestinatarioEmail(destinatarioEmail);
-        setSameAccountOpen(true);
+    
+    if (!destinatarioUid || destinatarioNome === "Usuário não encontrado" || destinatarioNome === "Erro ao buscar usuário") {
+        toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Número da chamada do destinatário inválido ou não encontrado.",
+        });
         return;
-      }
     }
 
-     // Check if sender has enough balance
-      if (saldo === null || parsedValor > saldo) {
-        setValorTransferencia(parsedValor);
-        setSuccessDestinatarioNome(destinatarioNome);
-        setSuccessDestinatarioEmail(destinatarioEmail);
-        setInsufficientBalanceOpen(true);
-        return;
-      }
+
+    if (userId === destinatarioUid) {
+      setValorTransferencia(parsedValor);
+      setSuccessDestinatarioNome(destinatarioNome);
+      setSuccessDestinatarioCallNumber(destinatarioCallNumber)
+      setSameAccountOpen(true);
+      return;
+    }
+
+    if (saldo === null || parsedValor > saldo) {
+      setValorTransferencia(parsedValor);
+      setSuccessDestinatarioNome(destinatarioNome);
+      setSuccessDestinatarioCallNumber(destinatarioCallNumber);
+      setInsufficientBalanceOpen(true);
+      return;
+    }
 
     setValorTransferencia(parsedValor);
     setSuccessDestinatarioNome(destinatarioNome);
-    setSuccessDestinatarioEmail(destinatarioEmail);
+    setSuccessDestinatarioCallNumber(destinatarioCallNumber);
     setOpen(true);
   };
 
   const confirmTransfer = async () => {
     setOpen(false);
+    if (!auth.currentUser || !destinatarioUid || !userId) {
+         toast({ variant: "destructive", title: "Erro", description: "Sessão inválida ou destinatário não encontrado." });
+        return;
+    }
+
     try {
-      if (auth.currentUser) {
-        const parsedValor = parseFloat(valor);
+      const parsedValor = parseFloat(valor);
 
-        // Get references to the sender and receiver documents
-        const remetenteDocRef = doc(db, "users", userId!);
+      const remetenteDocRef = doc(db, "users", userId);
+      const destinatarioDocRef = doc(db, "users", destinatarioUid);
 
-        const usersCollection = collection(db, "users");
-        const q = query(usersCollection, where("email", "==", destinatarioEmail));
-        const querySnapshot = await getDocs(q);
+      const remetenteDoc = await getDoc(remetenteDocRef);
+      const destinatarioDocSnap = await getDoc(destinatarioDocRef);
 
-        if (querySnapshot.empty) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Destinatário não encontrado.",
-          });
-          return;
-        }
-
-        const destinatarioDoc = querySnapshot.docs[0];
-        const destinatarioDocRef = doc(db, "users", destinatarioDoc.id);
-
-        // Get sender and receiver data
-        const remetenteDoc = await getDoc(remetenteDocRef);
-        const destinatarioDocSnap = await getDoc(destinatarioDocRef);
-
-        if (!remetenteDoc.exists() || !destinatarioDocSnap.exists()) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Remetente ou destinatário não encontrado.",
-          });
-          return;
-        }
-
-        let remetenteSaldo = remetenteDoc.data()?.saldo || 0;
-        let destinatarioSaldo = destinatarioDocSnap.data()?.saldo || 0;
-
-        // Check if sender has enough balance
-        if (remetenteSaldo < parsedValor) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Saldo insuficiente.",
-          });
-          return;
-        }
-
-        // Perform the transfer
-        remetenteSaldo -= parsedValor;
-        destinatarioSaldo += parsedValor;
-
-        // Update sender's balance
-        await updateDoc(remetenteDocRef, {
-          saldo: remetenteSaldo,
-        });
-
-        // Update receiver's balance
-        await updateDoc(destinatarioDocRef, {
-          saldo: destinatarioSaldo,
-        });
-
-        // Record the transaction
-        const transactionData = {
-          remetente: userId,
-          destinatario: destinatarioDoc.id,
-          valor: parsedValor,
-          data: new Date().toISOString(),
-        };
-        await addDoc(collection(db, "transactions"), transactionData);
-
-        // Store recipient info before clearing fields
-        setSuccessDestinatarioNome(destinatarioNome);
-        setSuccessDestinatarioEmail(destinatarioEmail);
-
-        // Clear input fields
-        setDestinatarioEmail("");
-        setValor("");
-
-        setSuccessOpen(true);
-        setTransferSuccess(true);
-
-        toast({
-          title: "Transferência realizada com sucesso!",
-          description: `Ƶ ${parsedValor} foi transferido para ${destinatarioNome} (${destinatarioEmail}).`,
-        });
+      if (!remetenteDoc.exists() || !destinatarioDocSnap.exists()) {
+        toast({ variant: "destructive", title: "Erro", description: "Remetente ou destinatário não encontrado." });
+        return;
       }
+
+      let remetenteSaldo = remetenteDoc.data()?.saldo || 0;
+      let destinatarioSaldo = destinatarioDocSnap.data()?.saldo || 0;
+
+      if (remetenteSaldo < parsedValor) {
+        // This check is redundant if the initial check in handleTransfer is solid, but good for safety.
+        setInsufficientBalanceOpen(true);
+        return;
+      }
+
+      remetenteSaldo -= parsedValor;
+      destinatarioSaldo += parsedValor;
+
+      await updateDoc(remetenteDocRef, { saldo: remetenteSaldo });
+      await updateDoc(destinatarioDocRef, { saldo: destinatarioSaldo });
+
+      await addDoc(collection(db, "transactions"), {
+        remetente: userId,
+        destinatario: destinatarioUid,
+        remetenteNome: remetenteDoc.data()?.fullName || "Remetente Desconhecido",
+        destinatarioNome: destinatarioDocSnap.data()?.fullName || "Destinatário Desconhecido",
+        valor: parsedValor,
+        data: serverTimestamp(),
+        tipo: "transferencia"
+      });
+      
+      setSuccessDestinatarioNome(destinatarioDocSnap.data()?.fullName);
+      setSuccessDestinatarioCallNumber(destinatarioCallNumber);
+
+      setDestinatarioCallNumber("");
+      setValor("");
+      setDestinatarioNome("");
+      setDestinatarioUid(null);
+
+      setSuccessOpen(true);
+      setTransferSuccess(true);
+
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -286,14 +261,10 @@ export default function Transfer() {
       });
     }
   };
+  
 
   return (
-    <div className="relative flex flex-col items-center justify-start min-h-screen py-8" style={{
-      backgroundImage: `url('https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm')`,
-      backgroundSize: 'cover',
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'fixed',
-    }}>
+    <div className="relative flex flex-col items-center justify-start min-h-screen py-8">
       <video
         src="https://static.moewalls.com/videos/preview/2023/pink-wave-sunset-preview.webm"
         autoPlay
@@ -302,45 +273,48 @@ export default function Transfer() {
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
       />
       <div className="absolute top-0 left-0 w-full h-full bg-black/20 z-10"/>
-        <div className="flex justify-center items-center py-4">
+      <div className="flex justify-center items-center py-4 z-20">
         <h1 className="text-4xl font-semibold text-purple-500 drop-shadow-lg wave" style={{ fontFamily: 'Dancing Script, cursive' }}>
           Zaca Bank
         </h1>
       </div>
-      {/* Navigation Buttons */}
-        <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
-            <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-2" /></Button>
-            <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-2" /></Button>
-            <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-2" /></Button>
-            <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-2" /></Button>
-        </div>
+      <div className="flex justify-around w-full max-w-md mb-8 z-20 mobile-nav-buttons">
+        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="md:text-sm"><Home className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Início</span></Button>
+        <Button onClick={() => router.push("/transfer")} variant="ghost" className="md:text-sm"><Wallet className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Transferências</span></Button>
+        <Button onClick={() => router.push("/history")} variant="ghost" className="md:text-sm"><Clock className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Histórico</span></Button>
+        <Button onClick={() => router.push("/profile")} variant="ghost" className="md:text-sm"><User className="mr-1 md:mr-2 h-5 w-5 md:h-auto md:w-auto" /><span>Perfil</span></Button>
+      </div>
       <Separator className="w-full max-w-md mb-8 z-20" />
 
-      <Card className="w-96 z-20 max-w-md">
+      <Card className="w-full max-w-md z-20 md:w-96">
         <CardHeader className="space-y-1">
-          <CardTitle>Realizar Transferência</CardTitle>
+          <CardTitle className="text-center md:text-left">Realizar Transferência</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 main-content">
            <div>
             <p className="text-lg font-semibold">
-              Saldo Atual: Ƶ {loadingSaldo ? <Skeleton width={100}/> : (saldo !== null ? saldo.toFixed(2) : "Carregando...")}
+              Saldo Atual: Ƶ {loadingSaldo ? <Skeleton className="inline-block w-24 h-6" /> : (saldo !== null ? saldo.toFixed(2) : "0.00")}
             </p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="destinatario">Email do Destinatário</Label>
+            <Label htmlFor="destinatarioCallNumber">Número da Chamada do Destinatário</Label>
             <Input
-              id="destinatario"
-              type="email"
-              placeholder="email@exemplo.com"
-              value={destinatarioEmail}
-              onChange={(e) => setDestinatarioEmail(e.target.value)}
+              id="destinatarioCallNumber"
+              type="number"
+              placeholder="Ex: 14"
+              value={destinatarioCallNumber}
+              onChange={(e) => setDestinatarioCallNumber(e.target.value)}
+              min="1"
+              max="50"
             />
-            {destinatarioNome && <p>Nome: {destinatarioNome}</p>}
+            {loadingDestinatario && <Skeleton className="h-4 w-32 mt-1" />}
+            {!loadingDestinatario && destinatarioNome && <p className="text-sm text-muted-foreground mt-1">Nome: {destinatarioNome}</p>}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="valor">Valor da Transferência</Label>
             <Input
               id="valor"
+              type="number"
               placeholder="0.00"
               value={valor}
               onChange={(e) => setValor(e.target.value)}
@@ -354,7 +328,7 @@ export default function Transfer() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Confirmação de Transferência</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Tem certeza que deseja transferir Ƶ {valor} para {destinatarioNome} ({destinatarioEmail})?
+                  Tem certeza que deseja transferir Ƶ {valorTransferencia.toFixed(2)} para {successDestinatarioNome} (Nº {successDestinatarioCallNumber})?
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -370,13 +344,13 @@ export default function Transfer() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Transferência realizada com sucesso!</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Ƶ {valorTransferencia} foi transferido para {successDestinatarioNome} ({successDestinatarioEmail}).
+                    Ƶ {valorTransferencia.toFixed(2)} foi transferido para {successDestinatarioNome} (Nº {successDestinatarioCallNumber}).
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogAction onClick={() => {
                     setSuccessOpen(false);
-                    setTransferSuccess(false); // Reset the transferSuccess state
+                    setTransferSuccess(false); 
                   }}>OK</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -388,7 +362,7 @@ export default function Transfer() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Saldo Insuficiente</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Você não tem saldo suficiente para transferir Ƶ {valorTransferencia} para {successDestinatarioNome} ({successDestinatarioEmail}).
+                  Você não tem saldo suficiente para transferir Ƶ {valorTransferencia.toFixed(2)} para {successDestinatarioNome} (Nº {successDestinatarioCallNumber}).
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -415,3 +389,4 @@ export default function Transfer() {
     </div>
   );
 }
+
