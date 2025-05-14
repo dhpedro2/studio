@@ -316,7 +316,7 @@ export default function Admin() {
                 <SelectContent>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                       {user.fullName || `Usuário (ID: ${user.id.substring(0,5)})`} (Nº {user.callNumber || 'N/A'})
+                       {user.fullName || `Usuário (ID: ${user.id.substring(0,5)})`} (${user.callNumber || 'Sem Número'})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -381,4 +381,3 @@ export default function Admin() {
     </div>
   );
 }
-
