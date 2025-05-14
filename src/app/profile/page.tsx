@@ -14,10 +14,11 @@ import {
   getDocs,
   orderBy,
   Timestamp,
+  or,
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, LogOut } from 'lucide-react';
+import { Home, Wallet, Clock, User, LogOut, PiggyBank, TrendingUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from 'date-fns';
@@ -69,7 +70,6 @@ export default function Profile() {
   const [transactionFrequency, setTransactionFrequency] = useState<any>({});
   const [fullName, setFullName] = useState<string | null>(null);
   const [callNumber, setCallNumber] = useState<number | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null); // For the dummy email
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -105,11 +105,10 @@ export default function Profile() {
           const userData = userDoc.data();
           setFullName(userData.fullName || null);
           setCallNumber(userData.callNumber || null);
-          setUserEmail(userData.email || null); // Store dummy email
           if (userData.createdAt && typeof userData.createdAt === 'string') {
             setCreatedAt(userData.createdAt);
-          } else if (userData.createdAt && userData.createdAt.toDate) { // Handle Timestamp
-             setCreatedAt(userData.createdAt.toDate().toISOString());
+          } else if (userData.createdAt && (userData.createdAt as Timestamp).toDate) { // Handle Timestamp
+             setCreatedAt((userData.createdAt as Timestamp).toDate().toISOString());
           }
         } else {
            router.push("/"); 
@@ -120,42 +119,30 @@ export default function Profile() {
 
         const transactionsCollectionRef = collection(db, "transactions");
         
-        const sentQuery = query(transactionsCollectionRef, where("remetente", "==", currentUserId), orderBy("data", "desc"));
-        const receivedQuery = query(transactionsCollectionRef, where("destinatario", "==", currentUserId), orderBy("data", "desc"));
+         const userTransactionsQuery = query(
+          transactionsCollectionRef,
+          or(
+              where("remetente", "==", currentUserId),
+              where("destinatario", "==", currentUserId)
+          ),
+          orderBy("data", "desc")
+        );
 
-        const [sentSnapshot, receivedSnapshot] = await Promise.all([
-            getDocs(sentQuery),
-            getDocs(receivedQuery),
-        ]);
-
-        const transactionList: Transaction[] = [];
-        const processedIds = new Set<string>();
-
-        const processDoc = (docSnap: any) => {
-            if (processedIds.has(docSnap.id)) return;
-            processedIds.add(docSnap.id);
-            const data = docSnap.data() as Transaction;
-            transactionList.push({ id: docSnap.id, ...data });
-        };
+        const querySnapshot = await getDocs(userTransactionsQuery);
+        const transactionList: Transaction[] = querySnapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+        } as Transaction));
         
-        sentSnapshot.docs.forEach(docSnap => processDoc(docSnap));
-        receivedSnapshot.docs.forEach(docSnap => processDoc(docSnap));
-
-        // Sort combined list by date
-        transactionList.sort((a, b) => {
-            const dateA = a.data instanceof Timestamp ? a.data.toMillis() : parseISO(a.data as string).getTime();
-            const dateB = b.data instanceof Timestamp ? b.data.toMillis() : parseISO(b.data as string).getTime();
-            return dateB - dateA;
-        });
         setTransactions(transactionList);
 
         const totalSent = transactionList
-            .filter(t => t.remetente === currentUserId && t.tipo !== 'admin_withdrawal_saldo' && t.tipo !== 'admin_withdrawal_saldoCaixinha')
+            .filter(t => t.remetente === currentUserId && t.tipo !== 'admin_withdrawal_saldo' && t.tipo !== 'admin_withdrawal_saldoCaixinha' && t.tipo !== 'admin_deposit_saldo' && t.tipo !== 'admin_deposit_saldoCaixinha')
             .reduce((sum, t) => sum + t.valor, 0);
         setTotalAmountTransferred(totalSent);
 
         const totalReceived = transactionList
-            .filter(t => t.destinatario === currentUserId && t.tipo !== 'admin_deposit_saldo' && t.tipo !== 'admin_deposit_saldoCaixinha')
+            .filter(t => t.destinatario === currentUserId && t.tipo !== 'admin_withdrawal_saldo' && t.tipo !== 'admin_withdrawal_saldoCaixinha' && t.tipo !== 'admin_deposit_saldo' && t.tipo !== 'admin_deposit_saldoCaixinha')
             .reduce((sum, t) => sum + t.valor, 0);
         setTotalAmountReceived(totalReceived);
 
@@ -232,7 +219,7 @@ export default function Profile() {
 
       <Card className="w-full max-w-md z-20 md:w-96">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-center md:text-left">Estatísticas do Perfil</CardTitle>
+          <CardTitle className="text-center md:text-left text-purple-500">Estatísticas do Perfil</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 main-content">
           <div className="flex items-center space-x-4">
@@ -249,9 +236,6 @@ export default function Profile() {
               </p>
               <p className="text-md text-muted-foreground">
                 Nº Chamada: {loading ? <Skeleton className="inline-block w-16 h-5"/> : (callNumber || "...")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Email (interno): {loading ? <Skeleton className="inline-block w-48 h-4"/> : (userEmail || "...")}
               </p>
                {createdAt && (
                 <p className="text-xs text-muted-foreground mt-1">
