@@ -8,7 +8,7 @@ import { getFirestore, doc, getDoc, onSnapshot, updateDoc, collection, query, ge
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Wallet, Clock, User, PiggyBank, Settings, TrendingUp } from 'lucide-react';
+import { Home, Wallet, Clock, User, PiggyBank, TrendingUp } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +33,7 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import { addDays, format, isSameDay, isWeekend, parseISO, startOfDay, subDays } from 'date-fns';
+import '@/app/globals.css';
 
 
 const firebaseConfig = {
@@ -56,6 +57,17 @@ interface CaixinhaYield {
     bankPortion: number;
 }
 
+interface UserData {
+  id: string;
+  fullName?: string;
+  callNumber?: number;
+  email?: string;
+  saldo?: number;
+  saldoCaixinha?: number;
+  [key: string]: any;
+}
+
+
 export default function Dashboard() {
     const [saldo, setSaldo] = useState<number | null>(null);
     const [saldoCaixinha, setSaldoCaixinha] = useState<number | null>(null);
@@ -63,7 +75,7 @@ export default function Dashboard() {
     const [lastYieldDate, setLastYieldDate] = useState<Date | null>(null); 
     const [loadingSaldo, setLoadingSaldo] = useState<boolean>(true);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<UserData[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string>("");
     const [addRemoveAmount, setAddRemoveAmount] = useState<string>("");
     const [isAdding, setIsAdding] = useState<boolean>(true);
@@ -239,7 +251,7 @@ export default function Dashboard() {
         try {
             const usersCollection = collection(db, "users");
             const usersSnapshot = await getDocs(usersCollection);
-            const usersList = usersSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            const usersList = usersSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as UserData));
             setUsers(usersList);
         } catch (error: any) {
             if (userIdRef.current && isAdmin) {
@@ -443,7 +455,7 @@ export default function Dashboard() {
                 valor: value,
                 adminAction: true, 
                 remetenteNome: "Banco", 
-                destinatarioNome: users.find(u => u.id === selectedUserId)?.name || "Usuário", 
+                destinatarioNome: users.find(u => u.id === selectedUserId)?.fullName || "Usuário", 
             };
 
             if (isAdding) {
@@ -608,7 +620,7 @@ export default function Dashboard() {
                                 <option value="">Selecione um usuário</option>
                                 {users.map((user) => (
                                     <option key={user.id} value={user.id}>
-                                        {user.email} ({user.name})
+                                        {user.fullName || user.email} (Nº {user.callNumber || 'Sem Número'})
                                     </option>
                                 ))}
                             </select>
@@ -663,7 +675,4 @@ export default function Dashboard() {
             )}
         </div>
     );
-
-
-
-
+}
