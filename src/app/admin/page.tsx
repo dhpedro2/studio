@@ -19,7 +19,7 @@ import {
 // Removed getStorage and ref as they are not used for image preview here
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, Edit } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -316,7 +316,7 @@ export default function Admin() {
                 <SelectContent>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      {user.fullName || user.email} (Nº {user.callNumber || 'N/A'})
+                       {user.fullName || `Usuário (ID: ${user.id.substring(0,5)})`} (Nº {user.callNumber || 'N/A'})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -324,8 +324,8 @@ export default function Admin() {
             </div>
             {selectedUserDetails && (
                 <div className="p-3 bg-muted rounded-md text-sm">
-                    <p><strong>Nome:</strong> {selectedUserDetails.fullName}</p>
-                    <p><strong>Nº Chamada:</strong> {selectedUserDetails.callNumber}</p>
+                    <p><strong>Nome:</strong> {selectedUserDetails.fullName || "Não informado"}</p>
+                    <p><strong>Nº Chamada:</strong> {selectedUserDetails.callNumber || "N/A"}</p>
                     <p><strong>Saldo Normal:</strong> Ƶ {selectedUserDetails.saldo?.toFixed(2) || '0.00'}</p>
                     <p><strong>Saldo Caixinha:</strong> Ƶ {selectedUserDetails.saldoCaixinha?.toFixed(2) || '0.00'}</p>
                 </div>
@@ -357,11 +357,11 @@ export default function Admin() {
         <Card className="w-full">
           <CardHeader><CardTitle>Depósitos Pendentes</CardTitle></CardHeader>
           <CardContent className="space-y-4 max-h-[600px] overflow-y-auto">
-            {loading && pendingDeposits.length === 0 && <Skeleton className="w-full h-20" count={3} />}
+            {loading && pendingDeposits.length === 0 && <Skeleton className="w-full h-20" />}
             {!loading && pendingDeposits.length === 0 && <p>Nenhum depósito pendente.</p>}
             {pendingDeposits.map((deposit) => (
               <Card key={deposit.id} className="p-4 space-y-2">
-                <p><strong>Usuário:</strong> {deposit.userFullName || deposit.userId} (Nº {deposit.userCallNumber || 'N/A'})</p>
+                <p><strong>Usuário:</strong> {deposit.userFullName || `Usuário (ID: ${deposit.userId.substring(0,5)})`} (Nº {deposit.userCallNumber || 'N/A'})</p>
                 <p><strong>Valor:</strong> Ƶ {deposit.amount.toFixed(2)}</p>
                 <p><strong>Data:</strong> {deposit.date?.toDate ? deposit.date.toDate().toLocaleString() : new Date(deposit.date).toLocaleString()}</p>
                 {deposit.fileURL && (
@@ -381,3 +381,4 @@ export default function Admin() {
     </div>
   );
 }
+
