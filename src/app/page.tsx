@@ -120,7 +120,7 @@ export default function Home() {
             callNumber: parseInt(callNumber),
             email: dummyEmail, // Store the dummy email
             saldo: 0,
-            saldoCaixinha: 0,
+            saldoCaixinha: 0, // Initialize saldoCaixinha
             isAdmin: false,
             createdAt: new Date().toISOString(),
             cpf: "", // Initialize cpf field
@@ -224,7 +224,7 @@ export default function Home() {
                         <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="" disabled>Nenhum número disponível</SelectItem>
+                      <SelectItem value="no_numbers_available" disabled>Nenhum número disponível</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
