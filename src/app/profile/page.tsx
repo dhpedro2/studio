@@ -18,7 +18,7 @@ import {
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Home, Wallet, Clock, User, LogOut, PiggyBank, TrendingUp } from 'lucide-react';
+import { Home, Wallet, Clock, User, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from 'date-fns';
@@ -119,7 +119,7 @@ export default function Profile() {
 
         const transactionsCollectionRef = collection(db, "transactions");
         
-         const userTransactionsQuery = query(
+        const userTransactionsQuery = query(
           transactionsCollectionRef,
           or(
               where("remetente", "==", currentUserId),
@@ -127,7 +127,7 @@ export default function Profile() {
           ),
           orderBy("data", "desc")
         );
-
+        
         const querySnapshot = await getDocs(userTransactionsQuery);
         const transactionList: Transaction[] = querySnapshot.docs.map(docSnap => ({
             id: docSnap.id,
@@ -219,7 +219,7 @@ export default function Profile() {
 
       <Card className="w-full max-w-md z-20 md:w-96">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-center md:text-left text-purple-500">Estatísticas do Perfil</CardTitle>
+          <CardTitle className="text-center md:text-left">Estatísticas do Perfil</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 main-content">
           <div className="flex items-center space-x-4">
